@@ -4,7 +4,7 @@
 Global Set Implicit Arguments. 
 Global Unset Strict Implicit.
 
-Require Import List Arith.
+Require Import List Arith Relations.
 
 Definition kind := nat.
 
@@ -102,7 +102,7 @@ end.
 (* Ou alors avec un Fixpoint ? On verra ce qui est plus pratique *)
 Inductive kinding e : typ -> kind -> Prop :=
 | kvar X p q : get_kind e X = Some p -> p <= q -> wf_env e -> kinding e (tvar X) q
-| karrow T U p q : kinding e T q -> kinding e U q -> kinding e (arrow T U) (max p q)
+| karrow T U p q : kinding e T q -> kinding e U q -> kinding e (arrow T U) (max p q)
 | kall T p q : kinding ((etvar q)::e) T q -> kinding e (all q T) ((max p q) + 1).
 
 Inductive typing e : term -> typ -> Prop :=
@@ -147,12 +147,12 @@ Proof.
 Qed.
 
 (* TODO *)
-Definition subst_env T x d := 
+Definition subst_env T x (d:envElem) := 
   d.
 
 Inductive env_subst p T : env -> env -> Prop :=
 | snil e : env_subst p T ((etvar p)::e) (map (subst_env T p) e)
-| scons e e' d : env_subst p T e e' -> env_subst p T (d::e) (d::e').
+| scons e e' d : env_subst p T e e' -> env_subst p T (d::e) (d::e').
 
 Fixpoint remove_var e x := match e with
 | nil => nil
@@ -184,12 +184,16 @@ Proof.
 Qed.
 
 (* TODO *)
+Definition shift x t := t.
 Lemma typing_weakening_var_ind :
   forall e x t T,
   wf_env e -> typing (remove_var e x) t T -> typing e (shift x t) T.
 
 (* TODO *)
 Lemma regularity e t T : exists p, kinding e T p.
+Proof.
+  admit.
+Qed.
 
 (* TODO *)
 Lemma narrowing e t T : 
@@ -202,8 +206,42 @@ Proof.
   admit.
 Qed.
 
-Definition red t u := match t with
-| tapp (tabs p t') T => u = subst_type t' T 0
-| app (abs T t') t'' => subst t' t'' 0 = u
-| 
-end.
+Inductive red_step : term -> term -> Prop :=
+| red_typ p t T : red_step (tapp (tabs p t) T) (subst_type t T 0)
+| red_term t u T : red_step (app (abs T t) u) ((subst t u) 0)
+| red_abs t u T : red_step t u -> red_step (abs T t) (abs T u)
+| red_appl t u v : red_step t u -> red_step (app t v) (app u v)
+| red_appr t u v : red_step u v -> red_step (app t u) (app t v)
+| red_tabs t u k : red_step t u -> red_step (tabs k t) (tabs k u)
+| red_tapp t u T : red_step t u -> red_step (tapp t T) (tapp u T). 
+
+Definition red := clos_trans term red_step.
+
+Lemma red_congruent t u : red t u -> 
+(  forall T, red (abs T t) (abs T u)
+/\ forall v, red (app t v) (app u v)
+/\ forall v, red (app v t) (app v u)
+/\ forall k, red (tabs k t) (tabs k u)
+/\ forall T, red (tapp t T) (tapp u T)).
+Proof.
+  admit.
+Qed.
+
+(* Bizarre. Il faut 2 variantes de neutral et les prédicats
+   ne sont pas mutuellement inductifs *)
+Inductive normal : term -> Prop :=
+| nvar x : normal (var x)
+| nabs T t : normal t -> normal (abs T t)
+| napp t u : normal t -> normal u -> neutral t -> normal (app t u)
+| ntabs k t : normal t -> normal (tabs k t)
+| ntapp t T : normal t -> neutralT t -> normal (tapp t T)
+
+with neutral : term -> Prop :=
+| neutral_var x : neutral (var x)
+| neutral_app t u : neutral (app t u)
+| neutral_tabs k t : neutral (tabs k t)
+
+with neutralT : term -> Prop :=
+| neutralT_var x : neutralT (var x)
+| neutralT_app t u : neutralT (app t u)
+| neutralT_abs T t : neutralT (abs T t).
