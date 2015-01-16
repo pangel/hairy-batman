@@ -39,11 +39,11 @@ Implicit Types
 
 (* TODO *)
 SearchAbout nat.
-Fixpoint shift T (m : nat) (p : nat) := 
+Fixpoint tshift T (m : nat) (p : nat) := 
   match T with
     | tvar n => if (leb p n) then (tvar (n+m)) else (tvar (n))
-    | arrow A B => arrow (shift A m p) (shift B m p)
-    | all k u => all (k) (shift u m (p+1))
+    | arrow A B => arrow (tshift A m p) (tshift B m p)
+    | all k u => all (k) (tshift u m (p+1))
   end
 .
 
@@ -54,7 +54,7 @@ Fixpoint tsubstaux T (n : nat) V (prof : nat) :=
     | tvar m => 
       (
         if (beq_nat m n) then (
-          shift V prof 0
+          tshift V prof 0
         ) else (
           tvar m
         )
@@ -75,15 +75,48 @@ Fixpoint subst_type t T X :=
     | abs U s => abs (tsubst U T X) (subst_type s T X)
     | app s u => app (subst_type s T X) (subst_type u T X) 
     | tabs n t => tabs n (subst_type t T (X+1))
-    | tapp s U => app (subst_type s T X) (tsubst U T X)
-
+    | tapp s U => tapp (subst_type s T X) (tsubst U T X)
   end.
 
+Fixpoint shift t (m : nat) (p : nat) := 
+  match t with
+    | var n => if (leb p n) then (var (n+m)) else (var (n))
+    | abs T s =>  abs T (shift s m (p+1))
+    | app s u => app (shift s m p) (shift u m p) 
+    | tabs n s => tabs n (shift s m p) 
+    | tapp s T => tapp (shift s m p) T
+   end
+.
+Fixpoint substaux t x u prof :=
+  match t with
+    |var n => if (beq_nat x n) then 
+      (
+        shift u prof 0
+      ) else (
+        var n
+      )
+      | abs T s => abs T (substaux s (x+1) u (prof +1))
+      | app s h => app (substaux s x u prof) (substaux s x u prof)
+      | tabs n s => tabs n (substaux s x u prof)
+      | tapp s T => tapp (substaux s x u prof) T
+  end.
 Definition subst t u x :=
-  t.
+  substaux t x u 0.
 
-Definition get_kind e (n:nat) : (option kind) := None.
-Definition get_typ e (n:nat) : (option typ) := None.
+Fixpoint get_kind e (n:nat) : (option kind) := 
+  match e with
+    |(etvar m)::e' => if (beq_nat 0 n) then (Some m) else get_kind (e') (n-1)
+    |(evar T)::e' => get_kind (e') n
+    |nil => None
+  end
+.
+Fixpoint get_typ e (n:nat) : (option typ) :=
+  match e with
+    |(etvar m)::e' => get_typ (e') n
+    |(evar T)::e' => if (beq_nat 0 n) then (Some T) else get_typ (e') (n-1)
+    |nil => None
+  end
+.
 
 Fixpoint wf_typ e T {struct T} : Prop :=
 match T with
@@ -102,8 +135,8 @@ end.
 (* Ou alors avec un Fixpoint ? On verra ce qui est plus pratique *)
 Inductive kinding e : typ -> kind -> Prop :=
 | kvar X p q : get_kind e X = Some p -> p <= q -> wf_env e -> kinding e (tvar X) q
-| karrow T U p q : kinding e T q -> kinding e U q -> kinding e (arrow T U) (max p q)
-| kall T p q : kinding ((etvar q)::e) T q -> kinding e (all q T) ((max p q) + 1).
+| karrow T U p q : kinding e T p -> kinding e U q -> kinding e (arrow T U) (max p q)
+| kall T p q : kinding ((etvar q)::e) T p -> kinding e (all q T) (1 + (max p q)).
 
 Inductive typing e : term -> typ -> Prop :=
 | rvar x T : get_typ e x = Some T -> wf_env e -> typing e (var x) T
@@ -113,9 +146,50 @@ Inductive typing e : term -> typ -> Prop :=
 | rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (subst_type t U 1) (tsubst T U 1).
 
 (* TODO *)
+Require Import Coq.Program.Equality.
+Require Import Omega.
 Lemma cumulativity : forall e T p q, kinding e T p -> p <= q -> kinding e T q.
 Proof.
-  admit.
+intros e T.
+revert e.
+induction T.
+-
+  intros.
+  inversion H.
+  refine (kvar H2 _ H4).
+    now transitivity p.
+  -
+  intros.
+  inversion H.
+  subst.
+  rewrite <- (Max.max_idempotent q).
+  refine (karrow _ _).
+    *
+      refine (IHT1 e p0 q H3 _).
+      apply (Max.max_lub_l _ _ _ H0).
+    * refine (IHT2 e q0 q H5 _).
+      apply (Max.max_lub_r _ _ _ H0).
+  -
+  intros.
+  inversion H.
+  subst.
+  assert (kinding ((etvar n)::e) T (q-1)).
+    +admit.
+    +replace q with (1 + max (q-1) n).
+      *refine (kall H1).
+      *{replace (max (q-1) n) with (q-1).
+        -omega.
+        -
+
+        
+  assert (q = max ())
+
+  -
+  refine (kvar H _ H2).
+  now transitivity q0.
+  -
+  refine (karrow H H1)
+
 Qed.
 
 Inductive insert_kind : kind -> env -> env -> Prop :=
