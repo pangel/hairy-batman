@@ -111,4 +111,64 @@ Proof.
   admit.
 Qed.
 
-(* TODO 1.3.1.3+ *)
+(* TODO *)
+Definition subst_env T x d := 
+  d.
+
+Inductive env_subst p T : env -> env -> Prop :=
+| snil e : env_subst p T ((etvar p)::e) (map (subst_env T p) e)
+| scons e e' d : env_subst p T e e' -> env_subst p T (d::e) (d::e').
+
+Fixpoint remove_var e x := match e with
+| nil => nil
+| d::e' => match x with
+  | 0 => e'
+  | S y => d::(remove_var e' y)
+  end
+end.
+
+Fixpoint replace_var e n p := match e with
+| nil => nil
+| d::e' => match n with
+  | 0 => match d with
+    | etvar q => (etvar p)::e'
+    | d => d::e'
+    end
+  | S n' => d::(replace_var e' n p)
+  end
+end.
+
+(* TODO *)
+Lemma subst_preserves_typing :
+  forall e x t u T U,
+  typing e t T ->
+  typing (remove_var e x) u U -> get_typ e x = Some U ->
+  typing (remove_var e x) (subst t u x) T.
+Proof.
+  admit.
+Qed.
+
+(* TODO *)
+Lemma typing_weakening_var_ind :
+  forall e x t T,
+  wf_env e -> typing (remove_var e x) t T -> typing e (shift x t) T.
+
+(* TODO *)
+Lemma regularity e t T : exists p, kinding e T p.
+
+(* TODO *)
+Lemma narrowing e t T : 
+  forall n p q,
+  get_kind e n = Some p -> 
+  typing e t T -> 
+  q <= p -> 
+  typing (replace_var e n q) t T.
+Proof.
+  admit.
+Qed.
+
+Definition red t u := match t with
+| tapp (tabs p t') T => u = subst_type t' T 0
+| app (abs T t') t'' => subst t' t'' 0 = u
+| 
+end.
