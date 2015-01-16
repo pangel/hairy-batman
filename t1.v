@@ -69,9 +69,15 @@ tsubstaux T X U 0
 
 (*Compute tsubst Tex (all (0) (tvar 1)) 1.
 Compute shift (all (0) (tvar 0)) 1 0.*)
-Definition subst_type t T X :=
+Fixpoint subst_type t T X :=
   match t with
-  end
+    | var x => var x
+    | abs U s => abs (tsubst U T X) (subst_type s T X)
+    | app s u => app (subst_type s T X) (subst_type u T X) 
+    | tabs n t => tabs n (subst_type t T (X+1))
+    | tapp s U => app (subst_type s T X) (tsubst U T X)
+
+  end.
 
 Definition subst t u x :=
   t.
