@@ -4,7 +4,7 @@
 Global Set Implicit Arguments. 
 Global Unset Strict Implicit.
 
-Require Import List.
+Require Import List Arith.
 
 Definition kind := nat.
 
@@ -38,11 +38,40 @@ Implicit Types
 (e f : env).
 
 (* TODO *)
-Definition tsubst T U X :=
-  T.
+SearchAbout nat.
+Fixpoint shift T (m : nat) (p : nat) := 
+  match T with
+    | tvar n => if (leb p n) then (tvar (n+m)) else (tvar (n))
+    | arrow A B => arrow (shift A m p) (shift B m p)
+    | all k u => all (k) (shift u m (p+1))
+  end
+.
 
+Definition Tex := all (0) (arrow (tvar (1)) (tvar(2))).
+
+Fixpoint tsubstaux T (n : nat) V (prof : nat) := 
+  match T with
+    | tvar m => 
+      (
+        if (beq_nat m n) then (
+          shift V prof 0
+        ) else (
+          tvar m
+        )
+        )
+     | arrow A B => arrow (tsubstaux A n V prof) (tsubstaux B n V prof)
+     | all k u => all k (tsubstaux u (n+1) V (prof+1))
+   end.
+
+Definition tsubst T U X :=
+tsubstaux T X U 0
+.
+
+(*Compute tsubst Tex (all (0) (tvar 1)) 1.
+Compute shift (all (0) (tvar 0)) 1 0.*)
 Definition subst_type t T X :=
-  t.
+  match t with
+  end
 
 Definition subst t u x :=
   t.
