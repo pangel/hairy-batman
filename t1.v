@@ -150,38 +150,34 @@ Require Import Coq.Program.Equality.
 Require Import Omega.
 Lemma cumulativity : forall e T p q, kinding e T p -> p <= q -> kinding e T q.
 Proof.
-intros e T.
-revert e.
-induction T.
--
-  intros.
-  inversion H.
-  refine (kvar H2 _ H4).
+  intros e T.
+  revert e.
+  induction T.
+  - intros.
+    inversion H.
+    refine (kvar H2 _ H4).
     now transitivity p.
-  -
-  intros.
-  inversion H.
-  subst.
-  rewrite <- (Max.max_idempotent q).
-  refine (karrow _ _).
-    *
-      refine (IHT1 e p0 q H3 _).
+  - intros.
+    inversion H.
+    subst.
+    rewrite <- (Max.max_idempotent q).
+    refine (karrow _ _).
+    + refine (IHT1 e p0 q H3 _).
       apply (Max.max_lub_l _ _ _ H0).
-    * refine (IHT2 e q0 q H5 _).
+    + refine (IHT2 e q0 q H5 _).
       apply (Max.max_lub_r _ _ _ H0).
-  -
-  intros.
-  inversion H.
-  subst.
-  assert (kinding ((etvar n)::e) T (q-1)).
-    +admit.
-    +replace q with (1 + max (q-1) n).
-      *refine (kall H1).
-      *{replace (max (q-1) n) with (q-1).
-        -omega.
-        -
+  - intros.
+    inversion H.
+    subst.
+    assert (kinding ((etvar n)::e) T (q-1)).
+    + admit.
+    + replace q with (1 + max (q-1) n).
+      * refine (kall H1).
+      * { replace (max (q-1) n) with (q-1).
+        - omega.
+        - admit.
 
-        
+(*        
   assert (q = max ())
 
   -
@@ -190,6 +186,8 @@ induction T.
   -
   refine (karrow H H1)
 
+*)
+  }
 Qed.
 
 Inductive insert_kind : kind -> env -> env -> Prop :=
