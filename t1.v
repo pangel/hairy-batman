@@ -318,3 +318,11 @@ with neutralT : term -> Prop :=
 | neutralT_var x : neutralT (var x)
 | neutralT_app t u : neutralT (app t u)
 | neutralT_abs T t : neutralT (abs T t).
+
+Lemma normal_neutral_preserved_typ_subst t T X :
+   normal t -> normal (subst_type t T X) 
+/\ neutral t -> neutral (subst_type t T X) 
+/\ neutralT t -> neutralT (subst_type t T X).
+Proof.
+  admit.
+Qed.
