@@ -190,18 +190,68 @@ Proof.
   }
 Qed.
 
-Inductive insert_kind : kind -> env -> env -> Prop :=
+Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
-| icons n d e e' : insert_kind n e e' -> insert_kind (S n) (d::e) (d::e') .
+| iskip n T e e' : insert_kind n e e' -> insert_kind n ((evar T)::e) ((evar T)::e')
+| icons n p e e' : insert_kind n e e' -> insert_kind (S n) ((etvar p)::e) ((etvar p)::e').
 
-(* 1.3.1.2 : Show that well-formedness, kinding and typing are invariant
-   by weakening by a kind declaration. e.g. *)
+Lemma get_kind_stop e X : get_kind e X = None -> get_kind e (S X) = None.
+Proof.
+  revert X.
+  induction e as [|d e]. 
+  - auto.
+  - simpl.
+    destruct d.
+    + auto.
+    + destruct X.
+      * discriminate.
+      * replace (S X - 1) with X by omega.
+        replace (S X - 0) with (S X) by omega.
+        auto. 
+Qed.
 
-(* TODO *)
+Lemma get_kind_insert e e' X Y : insert_kind X e e' -> get_kind e' Y = None -> get_kind e Y = None.
+Proof.
+  intro D.
+  revert Y.
+  induction D.
+  - simpl. destruct Y.
+    + discriminate.
+    + replace (S Y - 1) with Y by omega.
+      apply get_kind_stop.
+  - trivial.
+  - simpl. destruct Y.
+    + discriminate.
+    + auto.
+Qed.
+
+Lemma insert_kind_wf_typ n e e' T : insert_kind n e e' -> wf_typ e T -> wf_typ e' T.
+Proof.
+  revert n e e'.
+  induction T.
+  - simpl.
+    intros.
+    eauto using get_kind_insert.
+  - firstorder.
+  - simpl. 
+    intros n0 e e' D.
+    apply icons with (p:=n) in D. 
+    eauto.
+Qed.
+
 Lemma insert_kind_wf_env X e e' : 
   insert_kind X e e' -> wf_env e -> wf_env e'.
 Proof.
-  admit.
+  induction 1.
+  - auto.
+  - simpl.
+    intros [D E].
+    split.
+    + apply iskip with (T:=T) in H. 
+      now apply insert_kind_wf_typ with (n:=n) (e:=(evar T::e)).
+    + auto.
+  - simpl.
+    auto.
 Qed.
 
 (* TODO *)
