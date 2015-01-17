@@ -258,10 +258,9 @@ Proof.
 Qed.
 
 (* TODO *)
-Definition shift x t := t.
 Lemma typing_weakening_var_ind :
   forall e x t T,
-  wf_env e -> typing (remove_var e x) t T -> typing e (shift x t) T.
+  wf_env e -> typing (remove_var e x) t T -> typing e (shift t 1 x) T.
 
 (* TODO *)
 Lemma regularity e t T : exists p, kinding e T p.
