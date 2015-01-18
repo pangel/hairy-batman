@@ -146,6 +146,7 @@ Inductive typing e : term -> typ -> Prop :=
 | rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (subst_type t U 1) (tsubst T U 1).
 
 (* TODO *)
+
 Require Import Coq.Program.Equality.
 Require Import Omega.
 Lemma cumulativity : forall e T p q, kinding e T p -> p <= q -> kinding e T q.
@@ -170,25 +171,24 @@ Proof.
     inversion H.
     subst.
     assert (kinding ((etvar n)::e) T (q-1)).
-    + admit.
+    + apply (IHT (etvar n ::e) p0 (q-1)).
+      * apply H4.
+      * { transitivity (max p0 n).
+        - apply Max.le_max_l.
+        - omega.
+        }
     + replace q with (1 + max (q-1) n).
       * refine (kall H1).
       * { replace (max (q-1) n) with (q-1).
         - omega.
-        - admit.
-
-(*        
-  assert (q = max ())
-
-  -
-  refine (kvar H _ H2).
-  now transitivity q0.
-  -
-  refine (karrow H H1)
-
-*)
-  }
-Qed.
+        - assert ((max (q-1) n) = q-1).
+          + apply Max.max_l.
+            transitivity (max p0 n).
+              * apply Max.le_max_r.
+              * omega.
+          + omega.
+          }
+Qed. 
 
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
@@ -258,7 +258,19 @@ Qed.
 Lemma insert_kind_typing X e e' T p: 
   insert_kind X e e' -> kinding e T p -> kinding e' T p.
 Proof.
-  admit.
+  (*induction T.
+  - intros.
+    inversion H0.
+    subst.
+    refine (kvar _ H3 _).
+    + inversion H.
+      * subst.
+        split.
+  intros.
+  inversion H.
+  - subst.
+*)
+admit.
 Qed.
 
 (* TODO *)
