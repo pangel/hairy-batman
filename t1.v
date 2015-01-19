@@ -110,6 +110,7 @@ Fixpoint get_kind e (n:nat) : (option kind) :=
     |nil => None
   end
 .
+
 Fixpoint get_typ e (n:nat) : (option typ) :=
   match e with
     |(etvar m)::e' => get_typ (e') n
@@ -280,7 +281,7 @@ ce qui m'a l'air faux, car on a :
 
 Mais l'énoncé demande de prouver que "kinding (...) is invariant by a weakening by a kind declaration".
 *)
-Lemma insert_kind_typing X e e' T p: 
+Lemma insert_kind_kinding X e e' T p: 
   insert_kind X e e' -> kinding e T p -> exists q, kinding e' T q.
 Proof.
   revert p e e' X.
@@ -304,7 +305,7 @@ Proof.
 Qed.
 
 (* TODO *)
-Lemma insert_kind_kinding X e e' t T : 
+Lemma insert_kind_typing X e e' t T : 
   insert_kind X e e' -> typing e t T -> typing e' t T.
 Proof.
   admit.
