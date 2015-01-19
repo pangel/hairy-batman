@@ -45,14 +45,14 @@ Coercion var : nat >-> term.
 (* TODO *)
 
 Definition shift_var n floor inc :=
-if (leb floor n) then n+inc else n.
+if (leb floor n) then inc+n else n.
 
 
 Fixpoint tshift T (m : nat) (p : nat) := 
   match T with
     | tvar n => tvar (shift_var n p m)
     | arrow A B => arrow (tshift A m p) (tshift B m p)
-    | all k u => all (k) (tshift u m (p+1))
+    | all k u => all (k) (tshift u m (1+p))
   end
 .
 
@@ -114,7 +114,7 @@ Definition subst t u x :=
 
 Fixpoint get_kind e (n:nat) : (option kind) := 
   match e with
-    |(etvar m)::e' => if (beq_nat 0 n) then (Some m) else get_kind (e') (n-1)
+    |(etvar m)::e' => match n with 0 => Some m | S n => get_kind e' n end
     |(evar T)::e' => get_kind (e') n
     |nil => None
   end
@@ -122,8 +122,8 @@ Fixpoint get_kind e (n:nat) : (option kind) :=
 
 Fixpoint get_typ_aux e (n: nat) (m : nat) : (option typ) :=
   match e with
-    |(etvar m)::e' => get_typ_aux (e') n (m+1)
-    |(evar T)::e' => if (beq_nat 0 n) then (Some (tshift T m 0)) else get_typ_aux (e') (n-1) m
+    |(etvar m)::e' => get_typ_aux (e') n (1+m)
+    |(evar T)::e' => match n with 0 => Some (tshift T m 0) | S n => get_typ_aux (e') n m end
     |nil => None
   end
 .
@@ -218,34 +218,29 @@ Proof.
   induction D as [e p'| | ]; intros Y E.
   - unfold shift_var.
     destruct (leb 0 Y) eqn:K.
-    + apply leb_complete in K.
-      simpl.
-      replace (Y+1) with (S Y) by omega.
-      replace (S Y - 1) with Y by omega.
-      assumption.
+    + now apply leb_complete in K.
     + apply leb_complete_conv in K.
-      exfalso. omega.
+      exfalso. 
+      omega.
   - simpl in *. auto.
   - simpl.
     unfold shift_var.
     destruct (leb (S n) Y) eqn:K.
-    + replace (Y+1) with (S Y) by omega.
-      replace (S Y - 1) with Y by omega.
+    + simpl.
       simpl in E.
       destruct Y.
-      * apply leb_complete in K. exfalso. omega.
-      * replace (S Y - 1) with Y in E by omega.
-        specialize (IHD Y E).
+      * apply leb_complete in K. 
+        exfalso. 
+        omega.
+      * specialize (IHD Y E).
         unfold shift_var in IHD.
         simpl in K.
         rewrite K in IHD.
-        replace (Y+1) with (S Y) in IHD by omega.
         assumption.
     + simpl in E.
       destruct Y.
       * assumption.
-      * replace (S Y - 1) with Y in * by omega.
-        specialize (IHD Y E).
+      * specialize (IHD Y E).
         unfold shift_var in IHD.
         simpl in K.
         rewrite K in IHD.
@@ -276,9 +271,8 @@ Proof.
     split; eauto.
   - intros n' e e' A B.
     simpl in *.
-    refine (IHT (n'+1) (etvar n::e) _ _ _).
-    + replace (n'+1) with (S n') by omega.
-      refine (icons _ A).
+    refine (IHT (1+n') (etvar n::e) _ _ _).
+    + apply (icons _ A).
     + assumption.
 Qed.
 
@@ -316,7 +310,6 @@ Proof.
     apply (icons n) in D.
     specialize (IHT _ _ _ _ D H2).
     simpl. 
-    replace (X+1) with (S X) by omega.
     now apply kall.
 Qed.
 
