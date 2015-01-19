@@ -270,23 +270,19 @@ Qed.
 Lemma insert_kind_kinding X e e' T p: 
   insert_kind X e e' -> kinding e T p -> kinding e' (tshift T 1 X) p.
 Proof.
-  revert p e e' X.
-  induction T; intros p e e' X D E.
-  - inversion E as [? ? ? G H I J| | ]. subst.
-    pose proof (get_kind_insert_some D G) as J.
-    simpl.
-    refine (kvar J _ _).
-    + trivial.
-    + now apply insert_kind_wf_env with (X:=X) (e:=e).
-  - inversion E as [ | ? ? q1 q2 G H | ]. subst.
-    specialize (IHT1 _ _ _ _ D G).
-    specialize (IHT2 _ _ _ _ D H2).
-    apply (karrow IHT1 IHT2).
+  revert p X e e'.
+  induction T; intros p X e e' D E.
   - inversion E. subst.
-    apply (icons n) in D.
-    specialize (IHT _ _ _ _ D H2).
-    simpl. 
-    now apply kall.
+    refine (kvar _ H1 _).
+    + eapply get_kind_insert_some; eauto. 
+    + eapply insert_kind_wf_env; eauto. 
+  - inversion E. subst.
+    simpl.
+    refine (karrow _ _); eauto.
+  - apply (icons n) in D.
+    inversion E. subst.
+    refine (kall _).
+    eapply IHT; eauto.
 Qed.
 
 (* TODO *)
@@ -295,9 +291,6 @@ Lemma insert_kind_typing X e e' t T :
 Proof.
   admit.
 Qed.
-
-
-
 
 (* TODO *)
 Definition subst_env T x (d:envElem) := match d with
