@@ -111,12 +111,16 @@ Fixpoint get_kind e (n:nat) : (option kind) :=
   end
 .
 
-Fixpoint get_typ e (n:nat) : (option typ) :=
+Fixpoint get_typ_aux e (n: nat) (m : nat) : (option typ) :=
   match e with
-    |(etvar m)::e' => get_typ (e') n
-    |(evar T)::e' => if (beq_nat 0 n) then (Some T) else get_typ (e') (n-1)
+    |(etvar m)::e' => get_typ_aux (e') n (m+1)
+    |(evar T)::e' => if (beq_nat 0 n) then (Some (tshift T m 0)) else get_typ_aux (e') (n-1) m
     |nil => None
   end
+.
+
+Fixpoint get_typ e (n:nat) : (option typ) :=
+ get_typ_aux e n 0
 .
 
 Fixpoint wf_typ e T {struct T} : Prop :=
