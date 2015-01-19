@@ -37,6 +37,11 @@ Implicit Types
 (t s u v : term)
 (e f : env).
 
+(* Awesome :'(
+Coercion tvar : nat >-> typ.
+Coercion var : nat >-> term.
+*)
+
 (* TODO *)
 SearchAbout nat.
 Fixpoint tshift T (m : nat) (p : nat) := 
