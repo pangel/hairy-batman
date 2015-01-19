@@ -72,6 +72,9 @@ Definition tsubst T U X :=
 tsubstaux T X U 0
 .
 
+Definition shift_var m n :=
+if (leb n m) then m+1 else m.
+
 (*Compute tsubst Tex (all (0) (tvar 1)) 1.
 Compute shift (all (0) (tvar 0)) 1 0.*)
 Fixpoint subst_type t T X :=
@@ -202,64 +205,89 @@ Qed.
 
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
-| iskip n T e e' : insert_kind n e e' -> insert_kind n ((evar T)::e) ((evar T)::e')
+| iskip n T e e' : insert_kind n e e' -> insert_kind n ((evar T)::e) ((evar (tshift T 1 n))::e')
 | icons n p e e' : insert_kind n e e' -> insert_kind (S n) ((etvar p)::e) ((etvar p)::e').
 
-Lemma get_kind_stop e X : get_kind e X = None -> get_kind e (S X) = None.
-Proof.
-  revert X.
-  induction e as [|d e]. 
-  - auto.
-  - simpl.
-    destruct d.
-    + auto.
-    + destruct X.
-      * discriminate.
-      * replace (S X - 1) with X by omega.
-        replace (S X - 0) with (S X) by omega.
-        auto. 
-Qed.
 
-Lemma get_kind_insert e e' X Y : insert_kind X e e' -> get_kind e' Y = None -> get_kind e Y = None.
-Proof.
-  intro D.
-  revert Y.
-  induction D.
-  - simpl. destruct Y.
-    + discriminate.
-    + replace (S Y - 1) with Y by omega.
-      apply get_kind_stop.
-  - trivial.
-  - simpl. destruct Y.
-    + discriminate.
-    + auto.
-Qed.
-
-Lemma get_kind_insert_some e e' X Y p : 
-  insert_kind X e e' -> get_kind e Y = Some p -> exists k, get_kind e' Y = Some k.
+Lemma get_kind_insert_some e e' X Y p :
+  insert_kind X e e' -> get_kind e Y = Some p -> get_kind e' (shift_var Y X) = Some p.
 Proof.
   intros D E.
-  assert (get_kind e' Y = None -> False).
-  - intros F.
-    apply (get_kind_insert D) in F.
-    congruence.
-  - destruct (get_kind e' Y).
-    + eauto.
-    + congruence.
+  revert E. revert Y.
+  induction D as [e p'| | ]; intros Y E.
+  - unfold shift_var.
+    destruct (leb 0 Y) eqn:K.
+    + apply leb_complete in K.
+      simpl.
+      replace (Y+1) with (S Y) by omega.
+      replace (S Y - 1) with Y by omega.
+      assumption.
+    + apply leb_complete_conv in K.
+      exfalso. omega.
+  - simpl in *. auto.
+  - simpl.
+    unfold shift_var.
+    destruct (leb (S n) Y) eqn:K.
+    + replace (Y+1) with (S Y) by omega.
+      replace (S Y - 1) with Y by omega.
+      simpl in E.
+      destruct Y.
+      * apply leb_complete in K. exfalso. omega.
+      * replace (S Y - 1) with Y in E by omega.
+        specialize (IHD Y E).
+        unfold shift_var in IHD.
+        simpl in K.
+        rewrite K in IHD.
+        replace (Y+1) with (S Y) in IHD by omega.
+        assumption.
+    + simpl in E.
+      destruct Y.
+      * assumption.
+      * replace (S Y - 1) with Y in * by omega.
+        specialize (IHD Y E).
+        unfold shift_var in IHD.
+        simpl in K.
+        rewrite K in IHD.
+        assumption.
 Qed.
 
-Lemma insert_kind_wf_typ n e e' T : insert_kind n e e' -> wf_typ e T -> wf_typ e' T.
+Lemma get_kind_insert_none e e' X Y : 
+  insert_kind X e e' -> get_kind e' (shift_var Y X) = None -> get_kind e Y = None.
+Proof.
+  intros A B.
+  destruct (get_kind e Y) as [k|] eqn:K.
+  - apply (get_kind_insert_some A) in K.
+    congruence.
+  - reflexivity.
+Qed.
+
+Lemma insert_kind_wf_typ n e e' T : insert_kind n e e' -> wf_typ e T -> wf_typ e' (tshift T 1 n).
 Proof.
   revert n e e'.
   induction T.
-  - simpl.
-    intros.
-    eauto using get_kind_insert.
-  - firstorder.
-  - simpl. 
-    intros n0 e e' D.
-    apply icons with (p:=n) in D. 
-    eauto.
+  - intros n e e' A B.
+    simpl.
+    destruct (leb n x) eqn:K.
+    + simpl in *.
+      contradict B.
+      replace (x+1) with (shift_var x n) in B.
+      * apply (get_kind_insert_none A B).
+      * unfold shift_var. simpl. rewrite K. auto.
+    + simpl in *.
+      contradict B.
+      replace x with (shift_var x n) in B.
+      * apply (get_kind_insert_none A B).
+      * unfold shift_var. simpl. rewrite K. auto.
+  - intros n e e' A B.
+    simpl in *. 
+    destruct B as [B C]. 
+    split; eauto.
+  - intros n' e e' A B.
+    simpl in *.
+    refine (IHT (n'+1) (etvar n::e) _ _ _).
+    + replace (n'+1) with (S n') by omega.
+      refine (icons _ A).
+    + assumption.
 Qed.
 
 Lemma insert_kind_wf_env X e e' : 
@@ -270,46 +298,41 @@ Proof.
   - simpl.
     intros [D E].
     split.
-    + apply iskip with (T:=T) in H. 
+    + apply iskip with (T:=T) in H.
       now apply insert_kind_wf_typ with (n:=n) (e:=(evar T::e)).
     + auto.
   - simpl.
     auto.
 Qed.
 
-(* TODO *)
-(* Je voulais écrire
-
-  insert_kind X e e' -> kinding e T p -> kinding e' T p
-
-ce qui m'a l'air faux, car on a : 
-
-  kinding [etvar 2] 0 2
-  insert_kind 0 [etvar 2] [etvar 1; etvar 2]
-  kinding [etvar 1; etvar 2] 0 1
-
-Mais l'énoncé demande de prouver que "kinding (...) is invariant by a weakening by a kind declaration".
-*)
 Lemma insert_kind_kinding X e e' T p: 
-  insert_kind X e e' -> kinding e T p -> exists q, kinding e' T q.
+  insert_kind X e e' -> kinding e T p -> kinding e' (tshift T 1 X) p.
 Proof.
   revert p e e' X.
   induction T; intros p e e' X D E.
   - inversion E as [? ? ? G H I J| | ]. subst.
-    destruct (get_kind_insert_some D G) as [k F].
-    exists k.
-    refine (kvar F _ _).
-    + trivial.
-    + now apply insert_kind_wf_env with (X:=X) (e:=e).
+    pose proof (get_kind_insert_some D G) as J.
+    simpl.
+    destruct (leb X x) eqn:K.
+    * { replace (x+1) with (shift_var x X).
+      - refine (kvar J _ _).
+        + trivial.
+        + now apply insert_kind_wf_env with (X:=X) (e:=e).
+      - unfold shift_var. simpl. rewrite K. auto. }
+    *  { replace x with (shift_var x X).
+      - refine (kvar J _ _).
+        + trivial.
+        + now apply insert_kind_wf_env with (X:=X) (e:=e).
+      - unfold shift_var. simpl. rewrite K. auto. }
   - inversion E as [ | ? ? q1 q2 G H | ]. subst.
-    specialize (IHT1 _ _ _ _ D G). destruct IHT1 as [q1' K].
-    specialize (IHT2 _ _ _ _ D H2). destruct IHT2 as [q2' L].
-    exists (max q1' q2'). 
-    apply (karrow K L).
+    specialize (IHT1 _ _ _ _ D G).
+    specialize (IHT2 _ _ _ _ D H2).
+    apply (karrow IHT1 IHT2).
   - inversion E. subst.
     apply (icons n) in D.
-    specialize (IHT _ _ _ _ D H2). destruct IHT as [q1 K].
-    exists (1 + (max q1 n)).
+    specialize (IHT _ _ _ _ D H2).
+    simpl. 
+    replace (X+1) with (S X) by omega.
     now apply kall.
 Qed.
 
