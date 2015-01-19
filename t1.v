@@ -43,10 +43,14 @@ Coercion var : nat >-> term.
 *)
 
 (* TODO *)
-SearchAbout nat.
+
+Definition shift_var n floor inc :=
+if (leb floor n) then n+inc else n.
+
+
 Fixpoint tshift T (m : nat) (p : nat) := 
   match T with
-    | tvar n => if (leb p n) then (tvar (n+m)) else (tvar (n))
+    | tvar n => tvar (shift_var n p m)
     | arrow A B => arrow (tshift A m p) (tshift B m p)
     | all k u => all (k) (tshift u m (p+1))
   end
@@ -72,9 +76,6 @@ Definition tsubst T U X :=
 tsubstaux T X U 0
 .
 
-Definition shift_var m n :=
-if (leb n m) then m+1 else m.
-
 (*Compute tsubst Tex (all (0) (tvar 1)) 1.
 Compute shift (all (0) (tvar 0)) 1 0.*)
 Fixpoint subst_type t T X :=
@@ -88,7 +89,7 @@ Fixpoint subst_type t T X :=
 
 Fixpoint shift t (m : nat) (p : nat) := 
   match t with
-    | var n => if (leb p n) then (var (n+m)) else (var (n))
+    | var n => var (shift_var n p m)
     | abs T s =>  abs T (shift s m (p+1))
     | app s u => app (shift s m p) (shift u m p) 
     | tabs n s => tabs n (shift s m p) 
@@ -210,7 +211,7 @@ Inductive insert_kind : nat -> env -> env -> Prop :=
 
 
 Lemma get_kind_insert_some e e' X Y p :
-  insert_kind X e e' -> get_kind e Y = Some p -> get_kind e' (shift_var Y X) = Some p.
+  insert_kind X e e' -> get_kind e Y = Some p -> get_kind e' (shift_var Y X 1) = Some p.
 Proof.
   intros D E.
   revert E. revert Y.
@@ -252,7 +253,7 @@ Proof.
 Qed.
 
 Lemma get_kind_insert_none e e' X Y : 
-  insert_kind X e e' -> get_kind e' (shift_var Y X) = None -> get_kind e Y = None.
+  insert_kind X e e' -> get_kind e' (shift_var Y X 1) = None -> get_kind e Y = None.
 Proof.
   intros A B.
   destruct (get_kind e Y) as [k|] eqn:K.
@@ -266,18 +267,9 @@ Proof.
   revert n e e'.
   induction T.
   - intros n e e' A B.
-    simpl.
-    destruct (leb n x) eqn:K.
-    + simpl in *.
-      contradict B.
-      replace (x+1) with (shift_var x n) in B.
-      * apply (get_kind_insert_none A B).
-      * unfold shift_var. simpl. rewrite K. auto.
-    + simpl in *.
-      contradict B.
-      replace x with (shift_var x n) in B.
-      * apply (get_kind_insert_none A B).
-      * unfold shift_var. simpl. rewrite K. auto.
+    simpl in *.
+    contradict B.
+    apply (get_kind_insert_none A B).
   - intros n e e' A B.
     simpl in *. 
     destruct B as [B C]. 
@@ -313,17 +305,9 @@ Proof.
   - inversion E as [? ? ? G H I J| | ]. subst.
     pose proof (get_kind_insert_some D G) as J.
     simpl.
-    destruct (leb X x) eqn:K.
-    * { replace (x+1) with (shift_var x X).
-      - refine (kvar J _ _).
-        + trivial.
-        + now apply insert_kind_wf_env with (X:=X) (e:=e).
-      - unfold shift_var. simpl. rewrite K. auto. }
-    *  { replace x with (shift_var x X).
-      - refine (kvar J _ _).
-        + trivial.
-        + now apply insert_kind_wf_env with (X:=X) (e:=e).
-      - unfold shift_var. simpl. rewrite K. auto. }
+    refine (kvar J _ _).
+    + trivial.
+    + now apply insert_kind_wf_env with (X:=X) (e:=e).
   - inversion E as [ | ? ? q1 q2 G H | ]. subst.
     specialize (IHT1 _ _ _ _ D G).
     specialize (IHT2 _ _ _ _ D H2).
