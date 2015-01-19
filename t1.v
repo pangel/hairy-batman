@@ -28,7 +28,6 @@ Inductive envElem :=
 Definition env := list envElem.
 
 
-
 (* Les variables avec les noms suivants prennent le type correspondant par défaut *)
 Implicit Types 
 (x y z X Y Z : nat)
@@ -45,8 +44,8 @@ Coercion var : nat >-> term.
 (* TODO *)
 
 Definition shift_var n floor inc :=
-if (leb floor n) then inc+n else n.
-
+  if (le_dec floor n) then inc+n else n.
+Arguments shift_var / _ _ _.
 
 Fixpoint tshift T (m : nat) (p : nat) := 
   match T with
@@ -62,7 +61,7 @@ Fixpoint tsubstaux T (n : nat) V (prof : nat) :=
   match T with
     | tvar m => 
       (
-        if (beq_nat m n) then (
+        if (eq_nat_dec m n) then (
           tshift V prof 0
         ) else (
           tvar m
@@ -98,7 +97,7 @@ Fixpoint shift t (m : nat) (p : nat) :=
 .
 Fixpoint substaux t x u prof :=
   match t with
-    |var n => if (beq_nat x n) then 
+    |var n => if (eq_nat_dec x n) then 
       (
         shift u prof 0
       ) else (
@@ -109,6 +108,7 @@ Fixpoint substaux t x u prof :=
       | tabs n s => tabs n (substaux s x u prof)
       | tapp s T => tapp (substaux s x u prof) T
   end.
+
 Definition subst t u x :=
   substaux t x u 0.
 
@@ -216,35 +216,16 @@ Proof.
   intros D E.
   revert E. revert Y.
   induction D as [e p'| | ]; intros Y E.
-  - unfold shift_var.
-    destruct (leb 0 Y) eqn:K.
-    + now apply leb_complete in K.
-    + apply leb_complete_conv in K.
-      exfalso. 
-      omega.
-  - simpl in *. auto.
-  - simpl.
-    unfold shift_var.
-    destruct (leb (S n) Y) eqn:K.
-    + simpl.
-      simpl in E.
-      destruct Y.
-      * apply leb_complete in K. 
-        exfalso. 
-        omega.
-      * specialize (IHD Y E).
-        unfold shift_var in IHD.
-        simpl in K.
-        rewrite K in IHD.
-        assumption.
-    + simpl in E.
-      destruct Y.
-      * assumption.
-      * specialize (IHD Y E).
-        unfold shift_var in IHD.
-        simpl in K.
-        rewrite K in IHD.
-        assumption.
+  - auto.
+  - simpl in *.
+    auto.
+  - simpl in *.
+    destruct Y.
+    + destruct (le_dec (S n) 0); [omega|auto].
+    + specialize (IHD Y E).
+      destruct (le_dec n Y);
+      destruct (le_dec (S n) (S Y));
+      auto; omega.
 Qed.
 
 Lemma get_kind_insert_none e e' X Y : 
@@ -260,18 +241,14 @@ Qed.
 Lemma insert_kind_wf_typ n e e' T : insert_kind n e e' -> wf_typ e T -> wf_typ e' (tshift T 1 n).
 Proof.
   revert n e e'.
-  induction T.
-  - intros n e e' A B.
-    simpl in *.
-    contradict B.
+  induction T;
+  intros n' e e' A B;
+  simpl in *.
+  - contradict B.
     apply (get_kind_insert_none A B).
-  - intros n e e' A B.
-    simpl in *. 
-    destruct B as [B C]. 
+  - destruct B as [B C]. 
     split; eauto.
-  - intros n' e e' A B.
-    simpl in *.
-    refine (IHT (1+n') (etvar n::e) _ _ _).
+  - refine (IHT (1+n') (etvar n::e) _ _ _).
     + apply (icons _ A).
     + assumption.
 Qed.
@@ -287,8 +264,7 @@ Proof.
     + apply iskip with (T:=T) in H.
       now apply insert_kind_wf_typ with (n:=n) (e:=(evar T::e)).
     + auto.
-  - simpl.
-    auto.
+  - auto.
 Qed.
 
 Lemma insert_kind_kinding X e e' T p: 
