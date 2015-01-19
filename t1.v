@@ -143,7 +143,7 @@ Inductive typing e : term -> typ -> Prop :=
 | rabs t T U : typing ((evar T)::e) t U -> typing e (abs T t) (arrow T U)
 | rapp t u T U : typing e t (arrow T U) -> typing e u T -> typing e (app t u) U
 | rtabs t T p : typing ((etvar p)::e) t T -> typing e (tabs p t) (all p T)
-| rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (subst_type t U 1) (tsubst T U 1).
+| rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (tapp t U) (tsubst T U 0).
 
 (* TODO *)
 
@@ -225,6 +225,19 @@ Proof.
     + auto.
 Qed.
 
+Lemma get_kind_insert_some e e' X Y p : 
+  insert_kind X e e' -> get_kind e Y = Some p -> exists k, get_kind e' Y = Some k.
+Proof.
+  intros D E.
+  assert (get_kind e' Y = None -> False).
+  - intros F.
+    apply (get_kind_insert D) in F.
+    congruence.
+  - destruct (get_kind e' Y).
+    + eauto.
+    + congruence.
+Qed.
+
 Lemma insert_kind_wf_typ n e e' T : insert_kind n e e' -> wf_typ e T -> wf_typ e' T.
 Proof.
   revert n e e'.
@@ -255,22 +268,39 @@ Proof.
 Qed.
 
 (* TODO *)
-Lemma insert_kind_typing X e e' T p: 
-  insert_kind X e e' -> kinding e T p -> kinding e' T p.
-Proof.
-  (*induction T.
-  - intros.
-    inversion H0.
-    subst.
-    refine (kvar _ H3 _).
-    + inversion H.
-      * subst.
-        split.
-  intros.
-  inversion H.
-  - subst.
+(* Je voulais écrire
+
+  insert_kind X e e' -> kinding e T p -> kinding e' T p
+
+ce qui m'a l'air faux, car on a : 
+
+  kinding [etvar 2] 0 2
+  insert_kind 0 [etvar 2] [etvar 1; etvar 2]
+  kinding [etvar 1; etvar 2] 0 1
+
+Mais l'énoncé demande de prouver que "kinding (...) is invariant by a weakening by a kind declaration".
 *)
-admit.
+Lemma insert_kind_typing X e e' T p: 
+  insert_kind X e e' -> kinding e T p -> exists q, kinding e' T q.
+Proof.
+  revert p e e' X.
+  induction T; intros p e e' X D E.
+  - inversion E as [? ? ? G H I J| | ]. subst.
+    destruct (get_kind_insert_some D G) as [k F].
+    exists k.
+    refine (kvar F _ _).
+    + trivial.
+    + now apply insert_kind_wf_env with (X:=X) (e:=e).
+  - inversion E as [ | ? ? q1 q2 G H | ]. subst.
+    specialize (IHT1 _ _ _ _ D G). destruct IHT1 as [q1' K].
+    specialize (IHT2 _ _ _ _ D H2). destruct IHT2 as [q2' L].
+    exists (max q1' q2'). 
+    apply (karrow K L).
+  - inversion E. subst.
+    apply (icons n) in D.
+    specialize (IHT _ _ _ _ D H2). destruct IHT as [q1 K].
+    exists (1 + (max q1 n)).
+    now apply kall.
 Qed.
 
 (* TODO *)
@@ -280,9 +310,14 @@ Proof.
   admit.
 Qed.
 
+
+
+
 (* TODO *)
-Definition subst_env T x (d:envElem) := 
-  d.
+Definition subst_env T x (d:envElem) := match d with
+| (evar U) => evar (tsubst U T x)
+| d => d
+end.
 
 Inductive env_subst p T : env -> env -> Prop :=
 | snil e : env_subst p T ((etvar p)::e) (map (subst_env T p) e)
@@ -290,9 +325,10 @@ Inductive env_subst p T : env -> env -> Prop :=
 
 Fixpoint remove_var e x := match e with
 | nil => nil
-| d::e' => match x with
+| (etvar k)::e' => (etvar k)::remove_var e' x
+| (evar T)::e' => match x with
   | 0 => e'
-  | S y => d::(remove_var e' y)
+  | S y => (evar T)::(remove_var e' y)
   end
 end.
 
@@ -308,14 +344,47 @@ Fixpoint replace_var e n p := match e with
 end.
 
 (* TODO *)
+
+Lemma shift_noop : forall t n, shift t 0 n = t.
+Proof.
+  induction t; simpl; intro n'; [destruct (leb n' x)|..]; auto; congruence.
+Qed.
+
 Lemma subst_preserves_typing :
   forall e x t u T U,
   typing e t T ->
   typing (remove_var e x) u U -> get_typ e x = Some U ->
   typing (remove_var e x) (subst t u x) T.
 Proof.
+  intros e x t. revert e x.
+  induction t as [y | | | | ].
+  - intros e x u T U A B C.
+    unfold subst.
+    simpl.
+    destruct (beq_nat x y) eqn:K.
+    apply beq_nat_true in K. subst.
+    + rewrite (shift_noop u 0).
+      inversion A; subst.
+      replace T with U by congruence.
+      assumption.
+    + 
+      * .
+simpl.
   admit.
 Qed.
+
+Inductive kinding e : typ -> kind -> Prop :=
+| kvar X p q : get_kind e X = Some p -> p <= q -> wf_env e -> kinding e (tvar X) q
+| karrow T U p q : kinding e T p -> kinding e U q -> kinding e (arrow T U) (max p q)
+| kall T p q : kinding ((etvar q)::e) T p -> kinding e (all q T) (1 + (max p q)).
+
+Inductive typing e : term -> typ -> Prop :=
+| rvar x T : get_typ e x = Some T -> wf_env e -> typing e (var x) T
+| rabs t T U : typing ((evar T)::e) t U -> typing e (abs T t) (arrow T U)
+| rapp t u T U : typing e t (arrow T U) -> typing e u T -> typing e (app t u) U
+| rtabs t T p : typing ((etvar p)::e) t T -> typing e (tabs p t) (all p T)
+| rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (tapp t U) (tsubst T U 1).
+
 
 (* TODO *)
 Lemma typing_weakening_var_ind :
