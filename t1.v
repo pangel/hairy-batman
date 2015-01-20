@@ -20,6 +20,7 @@ Inductive term :=
 | tabs (n:kind) (t:term) 
 | tapp (t:term) (T:typ).
 
+
 (* On pourrait aussi définir un type list-like avec 3 constructeurs *)
 Inductive envElem :=
 | evar (T:typ)
@@ -35,6 +36,11 @@ Implicit Types
 (n k p q : kind)
 (t s u v : term)
 (e f : env).
+
+Fixpoint eq_typ_dec T U : sumbool (T = U) (T <> U).
+Proof.
+  repeat decide equality.
+Qed.
 
 (* Awesome :'(
 Coercion tvar : nat >-> typ.
@@ -132,6 +138,8 @@ Fixpoint get_typ e (n:nat) : (option typ) :=
  get_typ_aux e n 0
 .
 
+Require Import Bool.
+
 Fixpoint wf_typ e T {struct T} : Prop :=
 match T with
 | tvar X => get_kind e X = None -> False
@@ -139,12 +147,29 @@ match T with
 | all p U => wf_typ ((etvar p)::e) U
 end.
 
+Lemma wf_typ_dec e T : { wf_typ e T } + { wf_typ e T -> False }.
+Proof.
+  revert e.
+  induction T; intro e; simpl.
+  - destruct (get_kind e x) eqn:K.
+    + left. discriminate.
+    + right. auto.
+  - destruct (IHT1 e); destruct (IHT2 e); tauto.
+  - destruct (IHT (etvar n :: e)); tauto.
+Qed.
+
 Fixpoint wf_env e : Prop :=
 match e with
 | nil => True
 | (evar T)::e' => wf_typ e T /\ wf_env e'
 | (etvar p)::e' => wf_env e'
 end.
+
+Lemma wf_env_dec e : { wf_env e } + { wf_env e -> False }.
+Proof. 
+  induction e as [|[U|p]]; simpl; auto.
+  destruct (wf_typ_dec (evar U :: e) U); tauto.
+Qed.
 
 (* Ou alors avec un Fixpoint ? On verra ce qui est plus pratique *)
 Inductive kinding e : typ -> kind -> Prop :=
@@ -154,12 +179,14 @@ Inductive kinding e : typ -> kind -> Prop :=
 
 Inductive typing e : term -> typ -> Prop :=
 | rvar x T : get_typ e x = Some T -> wf_env e -> typing e (var x) T
-| rabs t T U : typing ((evar T)::e) t U -> typing e (abs T t) (arrow T U)
+(* not sure about tshift *)
+| rabs t T U : typing ((evar (tshift T 1 0))::e) t U -> typing e (abs T t) (arrow T U)
 | rapp t u T U : typing e t (arrow T U) -> typing e u T -> typing e (app t u) U
 | rtabs t T p : typing ((etvar p)::e) t T -> typing e (tabs p t) (all p T)
 | rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (tapp t U) (tsubst T U 0).
 
-(* TODO *)
+
+
 
 Require Import Coq.Program.Equality.
 Require Import Omega.
@@ -203,6 +230,219 @@ Proof.
           + omega.
           }
 Qed. 
+
+(* TODO *)
+Fixpoint infer_kind e T : option kind := match T with
+| tvar X => if wf_env_dec e then get_kind e X else None
+| arrow T U => match infer_kind e T with
+  | Some p => match infer_kind e U with
+    | Some q => Some (max p q)
+    | None => None
+    end
+  | None => None
+  end
+| all q T => match infer_kind ((etvar q)::e) T with
+  | Some p => Some ((max p q) + 1)
+  | None => None
+  end
+end.
+
+Fixpoint infer_typ e t : option typ := match t with
+| var x => if (wf_env_dec e) then get_typ e x else None
+| abs T t => match infer_typ (evar (tshift T 1 0)::e) t with
+  | Some U => Some (arrow T U)
+  | None => None
+  end
+| app t u => match (infer_typ e u) with
+  | Some T' => match (infer_typ e t) with
+    | Some (arrow T U) => if (eq_typ_dec T T') then Some U else None 
+    | _ => None 
+    end
+  | None => None 
+  end
+| tabs p t => match (infer_typ (etvar p::e) t) with
+  | Some T => Some (all p T)
+  | None => None 
+  end
+| tapp t T => match (infer_kind e T) with
+  | Some p => match (infer_typ e t) with
+    | Some (all p' U) => if (le_dec p p') then Some (tsubst U T 0) else None
+    | _ => None
+    end
+  | None => None
+  end
+end.
+
+
+Require Import Omega.
+
+Lemma infer_kind_reflects e T p : 
+  (infer_kind e T = Some p) <-> (forall q, p <= q <-> kinding e T q).
+Proof.
+  revert e p.
+  induction T.
+  - intros e p.
+    simpl.
+    split;
+    destruct (wf_env_dec e) as [B|B]. 
+    + intros A q. 
+      split; intros C.
+      * now refine (kvar A _ B).
+      * inversion C.
+        assert (p = p0) by congruence.
+        now subst.
+    + discriminate.
+    + intros A.
+      assert (H:kinding e (tvar x) p) by firstorder.
+      inversion H. subst.
+      * { destruct (le_dec p p0).
+        - assert (p0 = p) by firstorder.
+          now subst.
+        - pose proof (kvar H1 (le_n p0) H3) as C. 
+          pose proof ((proj2 (A p0)) C) as D.
+          exfalso.
+          omega. }
+    + intros A.
+      assert (kinding e (tvar x) p) by firstorder.
+      inversion H.
+      exfalso. 
+      tauto.
+  - split.
+    + simpl.
+      destruct (infer_kind e T1) eqn:K;
+      destruct (infer_kind e T2) eqn:L;
+      try discriminate.
+      intros A q.
+      inversion A; subst.
+      pose proof ((proj1 (IHT1 e k)) K) as C.
+      pose proof ((proj1 (IHT2 e k0)) L) as D.
+      split.
+      * intros B.
+        apply cumulativity with (p:= max k k0); auto.
+        refine (karrow (p:=k) (q:=k0) _ _); firstorder.
+      * intros B.
+        inversion B. subst.
+        assert (k <= p) by firstorder.
+        assert (k0 <= q0) by firstorder.
+        now apply NPeano.Nat.max_le_compat.
+    + intros A.
+      simpl.
+      destruct (infer_kind e T1) eqn:K;
+      destruct (infer_kind e T2) eqn:L.
+      * pose proof ((proj1 (IHT1 e k)) K) as C.
+        pose proof ((proj1 (IHT2 e k0)) L) as D.
+        assert (kinding e T1 k) by firstorder.
+        assert (kinding e T2 k0) by firstorder.
+        f_equal. 
+        { apply le_antisym.
+        - assert (kinding e (arrow T1 T2) p).
+          + now apply A.
+          + inversion H1. subst.
+            apply NPeano.Nat.max_le_compat;
+            firstorder.
+        - apply A. 
+          auto using karrow. }
+      * admit. * admit. * admit.
+  - admit.
+Qed.
+
+Lemma infer_kind_impl e T p k :
+  (infer_kind e T = Some p) -> p <= k -> kinding e T k.
+Proof.
+  intros A B.
+  now pose proof ((proj1 ((proj1 (infer_kind_reflects e T p) A) k)) B).
+Qed.
+
+Lemma infer_kind_conv e T p :
+  kinding e T p -> exists q, q <= p /\ infer_kind e T = Some q.
+Proof.
+  intros A.
+(*  exists p. 
+  split; auto.
+  apply infer_kind_reflects.
+  intro q. apply cumulativity.
+  firstorder using infer_kind_reflects. *)
+admit.
+Qed.
+
+
+Lemma infer_typ_reflects e t T : 
+  (infer_typ e t = Some T) <-> (typing e t T).
+Proof.
+  revert e T.
+  induction t; intros e T'; split; intros B.
+  - simpl in B.
+    destruct (wf_env_dec e).
+    + now apply rvar.
+    + discriminate.
+  - simpl. 
+    inversion B. subst.
+    destruct (wf_env_dec e).
+    + assumption.
+    + exfalso. 
+      tauto.
+  - simpl in B.
+    specialize (IHt (evar (tshift T 1 0)::e) T').
+    destruct (infer_typ _ t); try discriminate. 
+    inversion B. subst.
+    refine (rabs _).
+    admit.
+  - inversion B. subst.
+    inversion B. subst.
+    simpl.
+    replace (infer_typ _ t) with (Some U).
+    + reflexivity.
+    + symmetry.
+      firstorder.
+  - simpl in B.
+    destruct (infer_typ e t1) as [T1|] eqn:K;
+    destruct (infer_typ e t2) as[T2|] eqn:L;
+    try discriminate.
+    pose proof ((proj1 (IHt1 _ _)) K) as C.
+    pose proof ((proj1 (IHt2 _ _)) L) as D.
+    destruct T1; try discriminate.
+    destruct (eq_typ_dec T1_1 T2); try discriminate. subst.
+    injection B as E; subst. 
+    apply (rapp C D).
+  - inversion B; subst.
+    pose proof ((proj2 (IHt1 _ _)) H1) as C.
+    pose proof ((proj2 (IHt2 _ _)) H3) as D.
+    simpl.
+    rewrite C, D.
+    destruct (eq_typ_dec T T); congruence.
+  - simpl in B.
+    (* destruct eqn:_ fails here *)
+    assert (exists T'', infer_typ (etvar n::e) t = Some T'').
+    + destruct (infer_typ _ _).
+      * exists t0. congruence.
+      * discriminate.
+    + destruct H as [C D].
+      rewrite D in B.
+      inversion B; subst.
+      pose proof ((proj1 (IHt _ _)) D) as E.
+      apply (rtabs E).
+  - inversion B; subst.
+    pose proof ((proj2 (IHt _ _)) H2) as C.
+    simpl.
+    now rewrite C.
+  - simpl in B.
+    destruct (infer_kind e T) eqn:K;
+    destruct (infer_typ e t) as [[ | | p' U]|] eqn:L;
+    try destruct (le_dec k p') eqn:M; 
+    try discriminate.
+    inversion B; subst.
+    pose proof ((proj1 (IHt _ _) L)) as C.
+    apply (rtapp C).
+    now apply infer_kind_impl with (p:=k) (k:=p').
+  - inversion B; subst.
+    simpl.
+    apply infer_kind_conv in H3 as [k [C D]].
+    rewrite D.
+    pose proof ((proj2 (IHt _ _)) H1) as E.
+    rewrite E.
+    destruct (le_dec k p); congruence.
+Qed.
+
 
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
