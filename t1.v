@@ -4,7 +4,35 @@
 Global Set Implicit Arguments. 
 Global Unset Strict Implicit.
 
-Require Import List Arith Relations.
+Require Import 
+  List 
+  Arith 
+  Relations
+  Omega
+  Bool
+  Coq.Program.Equality.
+
+(* Hints, tactics *)
+
+Hint Resolve 
+  NPeano.Nat.max_le_compat 
+  NPeano.Nat.max_le_compat_r 
+  Max.max_idempotent
+  le_n_S.
+
+Hint Extern 4 =>
+  match goal with
+  | H: ?A , I: ?A -> False |- _ => exfalso; tauto
+  end.
+
+Hint Extern 4 =>
+  match goal with
+  | H: (_ = _) |- _ => discriminate
+  end.
+
+Ltac inv H := inversion H; clear H; subst.
+
+(* Definitions *)
 
 Definition kind := nat.
 
@@ -20,14 +48,12 @@ Inductive term :=
 | tabs (n:kind) (t:term) 
 | tapp (t:term) (T:typ).
 
-
 (* On pourrait aussi définir un type list-like avec 3 constructeurs *)
 Inductive envElem :=
 | evar (T:typ)
 | etvar (n:kind).
 
 Definition env := list envElem.
-
 
 (* Les variables avec les noms suivants prennent le type correspondant par défaut *)
 Implicit Types 
@@ -41,13 +67,6 @@ Fixpoint eq_typ_dec T U : sumbool (T = U) (T <> U).
 Proof.
   repeat decide equality.
 Qed.
-
-(* Awesome :'(
-Coercion tvar : nat >-> typ.
-Coercion var : nat >-> term.
-*)
-
-(* TODO *)
 
 Definition shift_var n floor inc :=
   if (le_dec floor n) then inc+n else n.
@@ -138,8 +157,6 @@ Fixpoint get_typ e (n:nat) : (option typ) :=
  get_typ_aux e n 0
 .
 
-Require Import Bool.
-
 Fixpoint wf_typ e T {struct T} : Prop :=
 match T with
 | tvar X => get_kind e X = None -> False
@@ -176,7 +193,6 @@ Inductive kinding e : typ -> kind -> Prop :=
 | kvar X p q : get_kind e X = Some p -> p <= q -> wf_env e -> kinding e (tvar X) q
 | karrow T U p q : kinding e T p -> kinding e U q -> kinding e (arrow T U) (max p q)
 | kall T p q : kinding ((etvar q)::e) T p -> kinding e (all q T) (1 + (max p q)).
-
 Inductive typing e : term -> typ -> Prop :=
 | rvar x T : get_typ e x = Some T -> wf_env e -> typing e (var x) T
 (* not sure about tshift *)
@@ -185,11 +201,8 @@ Inductive typing e : term -> typ -> Prop :=
 | rtabs t T p : typing ((etvar p)::e) t T -> typing e (tabs p t) (all p T)
 | rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (tapp t U) (tsubst T U 0).
 
+Hint Constructors kinding typing.
 
-
-
-Require Import Coq.Program.Equality.
-Require Import Omega.
 Lemma cumulativity : forall e T p q, kinding e T p -> p <= q -> kinding e T q.
 Proof.
   intros e T.
@@ -231,7 +244,6 @@ Proof.
           }
 Qed. 
 
-(* TODO *)
 Fixpoint infer_kind e T : option kind := match T with
 | tvar X => if wf_env_dec e then get_kind e X else None
 | arrow T U => match infer_kind e T with
@@ -273,71 +285,48 @@ Fixpoint infer_typ e t : option typ := match t with
   end
 end.
 
-
-Require Import Omega.
 (* We prove correctness and minimality wrt inductive predicate [kinding] *)
 
-Lemma infer_kind_impl e T p k :
-  (infer_kind e T = Some p) -> p <= k -> kinding e T k.
+Lemma infer_kind_impl e T p :
+  infer_kind e T = Some p -> kinding e T p.
 Proof.
-  revert e p k.
-  induction T; intros e p k A B.
-  - simpl in A.
-    destruct (wf_env_dec e).
-    + now apply kvar with (p:=p).
-    + discriminate.
-  - simpl in A.
-    destruct (infer_kind e T1) eqn:K;
+  revert e p.
+  induction T; intros e p A; simpl in A.
+  - destruct (wf_env_dec e); eauto.
+  - destruct (infer_kind e T1) eqn:K;
     destruct (infer_kind e T2) eqn:L;
-    try discriminate.
-    inversion A; subst.
-    apply cumulativity with (p:= max k0 k1); auto.
-    now refine (karrow (IHT1 _ k0 _ _ _) (IHT2 _ k1 _ _ _)).
-  - simpl in A.
-    destruct (infer_kind _ T) eqn:K; 
-    try discriminate.
-    inversion A; subst.
-    apply cumulativity with (p:= 1 + max k0 n); auto.
-    eapply kall. 
-    firstorder.
+    inv A. 
+    eauto.
+  - destruct (infer_kind _ T) eqn:K; 
+    inv A. 
+    eauto.
 Qed.
 
 Lemma infer_kind_conv e T p :
   kinding e T p -> exists q, q <= p /\ infer_kind e T = Some q.
 Proof.
   revert e p.
-  induction T; intros e p A.
-  - inversion A. subst.
-    exists p0.
-    intuition.
-    simpl.
+  induction T; intros e p A; inv A; simpl.
+  - exists p0.
+    split; eauto.
     destruct (wf_env_dec e); tauto.
-  - inversion A. subst.
-    pose proof (IHT1 e p0 H1) as [q' [B C]].
-    pose proof (IHT2 e q H3) as [q'' [D E]].
-    simpl.
+  - pose proof (IHT1 _ _ H1) as [q' [B C]].
+    pose proof (IHT2 _ _ H3) as [q'' [D E]].
     destruct (infer_kind e T1) eqn:K;
-    destruct (infer_kind e T2) eqn:L; try discriminate.
-    inversion C; inversion E; subst.
-    exists (max q' q'').
-    intuition.
-    now apply NPeano.Nat.max_le_compat.
-  - inversion A; subst.
-    simpl.
-    pose proof (IHT _ p0 H2) as [q' [B C]].
-    destruct (infer_kind _ T); try discriminate.
-    inversion C; subst.
-    exists (S (max q' n)).
-    split.
-    + now apply le_n_S, NPeano.Nat.max_le_compat_r.
-    + auto.
+    destruct (infer_kind e T2) eqn:L;
+    inv C; inv E. 
+    eauto.
+  - pose proof (IHT _ p0 H2) as [q' [B C]].
+    destruct (infer_kind _ T);
+    inv C. 
+    eauto.
 Qed.
 
 (* Informal proof of minimality for kind inference
   (infer_kind e T = Some p) <-> (forall q, p <= q <-> kinding e T q).
 
 inferred p -> p <= q -> kinding q 
-  use infer_kind_impl
+  use infer_kind_impl and cumulativity
 
 inferred p -> kinding q -> p <= q
   kinding q -> exists q', q' <= q /\ inferred q' by infer_kind_conv
@@ -347,93 +336,54 @@ inferred p -> kinding q -> p <= q
 (all q: kinding q <-> p <= q) -> inferred p
   since p <= p, kinding p by hypothesis
   so for some r <= p, inferred r by infer_kind_conv (2)
-  since inferred r, and r <= r, kinding r by infer_kind_impl (3)
+  since inferred r, kinding r by infer_kind_impl (3)
   so p <= r by hypothesis.
   so p = r by (2) and (3).
 *)
 
-Lemma infer_typ_reflects e t T : 
-  (infer_typ e t = Some T) <-> (typing e t T).
+Lemma infer_typ_impl e t T : 
+  (infer_typ e t = Some T) -> (typing e t T).
 Proof.
   revert e T.
-  induction t; intros e T'; split; intros B.
-  - simpl in B.
-    destruct (wf_env_dec e).
-    + now apply rvar.
-    + discriminate.
-  - simpl. 
-    inversion B. subst.
-    destruct (wf_env_dec e).
-    + assumption.
-    + exfalso. 
-      tauto.
-  - simpl in B.
-    specialize (IHt (evar (tshift T 1 0)::e) T').
-    destruct (infer_typ _ t); try discriminate. 
-    inversion B. subst.
-    refine (rabs _).
-    admit.
-  - inversion B. subst.
-    inversion B. subst.
-    simpl.
-    replace (infer_typ _ t) with (Some U).
-    + reflexivity.
-    + symmetry.
-      firstorder.
-  - simpl in B.
-    destruct (infer_typ e t1) as [T1|] eqn:K;
-    destruct (infer_typ e t2) as[T2|] eqn:L;
-    try discriminate.
-    pose proof ((proj1 (IHt1 _ _)) K) as C.
-    pose proof ((proj1 (IHt2 _ _)) L) as D.
-    destruct T1; try discriminate.
-    destruct (eq_typ_dec T1_1 T2); try discriminate. subst.
-    injection B as E; subst. 
-    apply (rapp C D).
-  - inversion B; subst.
-    pose proof ((proj2 (IHt1 _ _)) H1) as C.
-    pose proof ((proj2 (IHt2 _ _)) H3) as D.
-    simpl.
-    rewrite C, D.
-    destruct (eq_typ_dec T T); congruence.
-  - simpl in B.
-    (* destruct eqn:_ fails here *)
-    assert (exists T'', infer_typ (etvar n::e) t = Some T'').
-    + destruct (infer_typ _ _).
-      * exists t0. congruence.
-      * discriminate.
-    + destruct H as [C D].
-      rewrite D in B.
-      inversion B; subst.
-      pose proof ((proj1 (IHt _ _)) D) as E.
-      apply (rtabs E).
-  - inversion B; subst.
-    pose proof ((proj2 (IHt _ _)) H2) as C.
-    simpl.
-    now rewrite C.
-  - simpl in B.
-    destruct (infer_kind e T) eqn:K;
+  induction t; intros e T' B; simpl in B.
+  - destruct (wf_env_dec e); eauto.
+  - destruct (infer_typ _ _) eqn:K; 
+    inv B.
+    eauto.
+  - destruct (infer_typ e t1) as [[ | | ]|] eqn:K;
+    destruct (infer_typ e t2) eqn:L;
+    try destruct (eq_typ_dec _ _);
+    inv B. 
+    eauto.
+  - destruct (infer_typ _ _) eqn:K; inv B.
+    eauto.
+  - destruct (infer_kind e T) eqn:K;
     destruct (infer_typ e t) as [[ | | p' U]|] eqn:L;
     try destruct (le_dec k p') eqn:M; 
-    try discriminate.
-    inversion B; subst.
-    pose proof ((proj1 (IHt _ _) L)) as C.
-    apply (rtapp C).
-    now apply infer_kind_impl with (p:=k) (k:=p').
-  - inversion B; subst.
-    simpl.
-    apply infer_kind_conv in H3 as [k [C D]].
-    rewrite D.
-    pose proof ((proj2 (IHt _ _)) H1) as E.
-    rewrite E.
-    destruct (le_dec k p); congruence.
+    inv B.
+    pose proof (infer_kind_impl K). eauto.
+    apply cumulativity with (q:=p') in H; eauto.
+Qed.
+
+Lemma infer_typ_conv e t T : 
+  (typing e t T) -> (infer_typ e t = Some T).
+Proof.
+  revert e T.
+  induction t; intros e T'; intros B; simpl; inv B.
+  - destruct (wf_env_dec e); auto.
+  - now rewrite (IHt _ _ H2).
+  - rewrite (IHt1 _ _ H1), (IHt2 _ _ H3).
+    destruct (eq_typ_dec _ _); congruence.
+  - now rewrite (IHt _ _ H2).
+  - apply infer_kind_conv in H3 as [k [C D]].
+    rewrite D, (IHt _ _ H1).
+    destruct (le_dec _ _); congruence.
 Qed.
 
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
 | iskip n T e e' : insert_kind n e e' -> insert_kind n ((evar T)::e) ((evar (tshift T 1 n))::e')
 | icons n p e e' : insert_kind n e e' -> insert_kind (S n) ((etvar p)::e) ((etvar p)::e').
-
 
 Lemma get_kind_insert_some e e' X Y p :
   insert_kind X e e' -> get_kind e Y = Some p -> get_kind e' (shift_var Y X 1) = Some p.
