@@ -242,7 +242,7 @@ Fixpoint infer_kind e T : option kind := match T with
   | None => None
   end
 | all q T => match infer_kind ((etvar q)::e) T with
-  | Some p => Some ((max p q) + 1)
+  | Some p => Some (1 + (max p q))
   | None => None
   end
 end.
@@ -275,96 +275,82 @@ end.
 
 
 Require Import Omega.
-
-Lemma infer_kind_reflects e T p : 
-  (infer_kind e T = Some p) <-> (forall q, p <= q <-> kinding e T q).
-Proof.
-  revert e p.
-  induction T.
-  - intros e p.
-    simpl.
-    split;
-    destruct (wf_env_dec e) as [B|B]. 
-    + intros A q. 
-      split; intros C.
-      * now refine (kvar A _ B).
-      * inversion C.
-        assert (p = p0) by congruence.
-        now subst.
-    + discriminate.
-    + intros A.
-      assert (H:kinding e (tvar x) p) by firstorder.
-      inversion H. subst.
-      * { destruct (le_dec p p0).
-        - assert (p0 = p) by firstorder.
-          now subst.
-        - pose proof (kvar H1 (le_n p0) H3) as C. 
-          pose proof ((proj2 (A p0)) C) as D.
-          exfalso.
-          omega. }
-    + intros A.
-      assert (kinding e (tvar x) p) by firstorder.
-      inversion H.
-      exfalso. 
-      tauto.
-  - split.
-    + simpl.
-      destruct (infer_kind e T1) eqn:K;
-      destruct (infer_kind e T2) eqn:L;
-      try discriminate.
-      intros A q.
-      inversion A; subst.
-      pose proof ((proj1 (IHT1 e k)) K) as C.
-      pose proof ((proj1 (IHT2 e k0)) L) as D.
-      split.
-      * intros B.
-        apply cumulativity with (p:= max k k0); auto.
-        refine (karrow (p:=k) (q:=k0) _ _); firstorder.
-      * intros B.
-        inversion B. subst.
-        assert (k <= p) by firstorder.
-        assert (k0 <= q0) by firstorder.
-        now apply NPeano.Nat.max_le_compat.
-    + intros A.
-      simpl.
-      destruct (infer_kind e T1) eqn:K;
-      destruct (infer_kind e T2) eqn:L.
-      * pose proof ((proj1 (IHT1 e k)) K) as C.
-        pose proof ((proj1 (IHT2 e k0)) L) as D.
-        assert (kinding e T1 k) by firstorder.
-        assert (kinding e T2 k0) by firstorder.
-        f_equal. 
-        { apply le_antisym.
-        - assert (kinding e (arrow T1 T2) p).
-          + now apply A.
-          + inversion H1. subst.
-            apply NPeano.Nat.max_le_compat;
-            firstorder.
-        - apply A. 
-          auto using karrow. }
-      * admit. * admit. * admit.
-  - admit.
-Qed.
+(* We prove correctness and minimality wrt inductive predicate [kinding] *)
 
 Lemma infer_kind_impl e T p k :
   (infer_kind e T = Some p) -> p <= k -> kinding e T k.
 Proof.
-  intros A B.
-  now pose proof ((proj1 ((proj1 (infer_kind_reflects e T p) A) k)) B).
+  revert e p k.
+  induction T; intros e p k A B.
+  - simpl in A.
+    destruct (wf_env_dec e).
+    + now apply kvar with (p:=p).
+    + discriminate.
+  - simpl in A.
+    destruct (infer_kind e T1) eqn:K;
+    destruct (infer_kind e T2) eqn:L;
+    try discriminate.
+    inversion A; subst.
+    apply cumulativity with (p:= max k0 k1); auto.
+    now refine (karrow (IHT1 _ k0 _ _ _) (IHT2 _ k1 _ _ _)).
+  - simpl in A.
+    destruct (infer_kind _ T) eqn:K; 
+    try discriminate.
+    inversion A; subst.
+    apply cumulativity with (p:= 1 + max k0 n); auto.
+    eapply kall. 
+    firstorder.
 Qed.
 
 Lemma infer_kind_conv e T p :
   kinding e T p -> exists q, q <= p /\ infer_kind e T = Some q.
 Proof.
-  intros A.
-(*  exists p. 
-  split; auto.
-  apply infer_kind_reflects.
-  intro q. apply cumulativity.
-  firstorder using infer_kind_reflects. *)
-admit.
+  revert e p.
+  induction T; intros e p A.
+  - inversion A. subst.
+    exists p0.
+    intuition.
+    simpl.
+    destruct (wf_env_dec e); tauto.
+  - inversion A. subst.
+    pose proof (IHT1 e p0 H1) as [q' [B C]].
+    pose proof (IHT2 e q H3) as [q'' [D E]].
+    simpl.
+    destruct (infer_kind e T1) eqn:K;
+    destruct (infer_kind e T2) eqn:L; try discriminate.
+    inversion C; inversion E; subst.
+    exists (max q' q'').
+    intuition.
+    now apply NPeano.Nat.max_le_compat.
+  - inversion A; subst.
+    simpl.
+    pose proof (IHT _ p0 H2) as [q' [B C]].
+    destruct (infer_kind _ T); try discriminate.
+    inversion C; subst.
+    exists (S (max q' n)).
+    split.
+    + now apply le_n_S, NPeano.Nat.max_le_compat_r.
+    + auto.
 Qed.
 
+(* Informal proof of minimality for kind inference
+  (infer_kind e T = Some p) <-> (forall q, p <= q <-> kinding e T q).
+
+inferred p -> p <= q -> kinding q 
+  use infer_kind_impl
+
+inferred p -> kinding q -> p <= q
+  kinding q -> exists q', q' <= q /\ inferred q' by infer_kind_conv
+  inferred q' /\ inferred p -> q' = p by injection (1)
+  q' <= q -> p <= q by (1)
+
+(all q: kinding q <-> p <= q) -> inferred p
+  since p <= p, kinding p by hypothesis
+  so for some r <= p, inferred r by infer_kind_conv (2)
+  since inferred r, and r <= r, kinding r by infer_kind_impl (3)
+  so p <= r by hypothesis.
+  so p = r by (2) and (3).
+*)
 
 Lemma infer_typ_reflects e t T : 
   (infer_typ e t = Some T) <-> (typing e t T).
@@ -442,7 +428,6 @@ Proof.
     rewrite E.
     destruct (le_dec k p); congruence.
 Qed.
-
 
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
