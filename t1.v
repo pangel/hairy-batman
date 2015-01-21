@@ -14,6 +14,8 @@ Require Import
 
 (* Hints, tactics *)
 
+Ltac inv H := inversion H; clear H; subst.
+
 Hint Resolve 
   NPeano.Nat.max_le_compat 
   NPeano.Nat.max_le_compat_r 
@@ -22,15 +24,16 @@ Hint Resolve
 
 Hint Extern 1 =>
   match goal with
-  | [ H: ?A , I: ?A -> False |- _ ] => exfalso; apply (I H)
+  | H: ?A , I: ?A -> False |- _ => exfalso; apply (I H)
+  | H: ?A , I: ~ ?A |- _ => exfalso; apply (I H)
+  | H: (?A <> ?A) |- _ => exfalso; now apply H
+  | H: Some _ = Some _ |- _ => inv H
   end.
 
 Hint Extern 4 =>
   match goal with
   | H: (_ = _) |- _ => discriminate
   end.
-
-Ltac inv H := inversion H; clear H; subst.
 
 (* Definitions *)
 
@@ -168,9 +171,7 @@ Lemma wf_typ_dec e T : { wf_typ e T } + { wf_typ e T -> False }.
 Proof.
   revert e.
   induction T; intro e; simpl.
-  - destruct (get_kind e x) eqn:K.
-    + left. discriminate.
-    + right. auto.
+  - destruct (get_kind e x) eqn:?; eauto.
   - destruct (IHT1 e); destruct (IHT2 e); tauto.
   - destruct (IHT (etvar n :: e)); tauto.
 Qed.
@@ -286,40 +287,25 @@ Fixpoint infer_typ e t : option typ := match t with
 end.
 
 (* We prove correctness and minimality wrt inductive predicate [kinding] *)
-Hint Extern 4 =>
-  match goal with
-  | H: context[if wf_env_dec ?e then _ else _] |- _  =>
-  let K := fresh "K" in
-  destruct (wf_env_dec e) eqn:K; try discriminate
-  | H: context[match infer_kind ?e ?T with _ => _ end] |- _ =>
-  let K := fresh "K" in
-  destruct (infer_kind e T) eqn:K; try discriminate
-  | H: Some _ = Some _ |- _ => inversion H; subst
+
+Hint Extern 1 =>
+  let destr T := destruct T eqn:?; try discriminate
+  in match goal with
+    | H: ?s <= ?b |- kinding _ _ ?b  => apply cumulativity with (p:=s) (q:=b)
+    | H: match ?T with _ => _ end = Some _ |- _ => destr T
+    | H:_ |- (match ?T with _ => _ end) = Some _ => destr T
   end.
 
-Hint Extern 2 =>
-match goal with
-  | H:_ |- context[wf_env_dec ?e] => 
-  let K := fresh "K" in
-  destruct (wf_env_dec e) eqn:K; try discriminate
-end.
-
-Hint Extern 4 =>
-match goal with
-  | H: Some _ = Some _ |- _ => inversion H; subst
-  end.
-
-Lemma infer_kind_impl e T p :
-  infer_kind e T = Some p -> kinding e T p.
+Lemma infer_kind_impl T :
+  forall e p, infer_kind e T = Some p -> kinding e T p.
 Proof.
-  revert e p.
-  induction T; intros e p A; simpl in A; eauto 7.
+  induction T; simpl; eauto 10.
 Qed.
+Hint Resolve infer_kind_impl.
 
-Lemma infer_kind_conv e T p :
-  kinding e T p -> exists q, q <= p /\ infer_kind e T = Some q.
+Lemma infer_kind_conv T :
+  forall e p, kinding e T p -> exists q, q <= p /\ infer_kind e T = Some q.
 Proof.
-  revert e p.
   induction T; intros e p A; inv A; simpl.
   - eauto.
   - pose proof (IHT1 _ _ H1) as [? [? C]].
@@ -331,89 +317,24 @@ Proof.
     eauto 7.
 Qed.
 
-(* Informal proof of minimality for kind inference
-  (infer_kind e T = Some p) <-> (forall q, p <= q <-> kinding e T q).
-
-inferred p -> p <= q -> kinding q 
-  use infer_kind_impl and cumulativity
-
-inferred p -> kinding q -> p <= q
-  kinding q -> exists q', q' <= q /\ inferred q' by infer_kind_conv
-  inferred q' /\ inferred p -> q' = p by injection (1)
-  q' <= q -> p <= q by (1)
-
-(all q: kinding q <-> p <= q) -> inferred p
-  since p <= p, kinding p by hypothesis
-  so for some r <= p, inferred r by infer_kind_conv (2)
-  since inferred r, kinding r by infer_kind_impl (3)
-  so p <= r by hypothesis.
-  so p = r by (2) and (3).
-*)
-
-Hint Extern 2 =>
-match goal with
-  | H: context[if eq_typ_dec ?T ?T' then _ else _] |- _ =>
-  let K := fresh "K" in
-  destruct (eq_typ_dec T T') eqn:K; try discriminate
-end.
-
-Hint Extern 1 =>
-match goal with
-  | H: context[match infer_typ ?e ?T with _ => _ end] |- _ =>
-  let K := fresh "K" in
-  destruct (infer_typ e T) eqn:K; try discriminate
-end.
-
-Hint Extern 1 =>
-match goal with
-  | H: context[match (?t:typ) with _ => _ end] |- _ =>
-  let K := fresh "K" in
-  destruct t eqn:K; try discriminate
-end.
-
-Lemma infer_typ_impl e t T : 
-  (infer_typ e t = Some T) -> (typing e t T).
+Lemma infer_typ_impl t : 
+  forall e T, infer_typ e t = Some T -> typing e t T.
 Proof.
-  revert e T.
-  induction t; intros e T' B; simpl in B.
-  - eauto.
-  - eauto.
-  - eauto 7. destruct (infer_typ e t1) eqn:K;
-destruct (infer_typ e t2) eqn:L; eauto.
-destruct t eqn:K'; try discriminate.
-eauto 15. destruct (infer_typ e t1) as [[ | | ]|] eqn:K;
-    destruct (infer_typ e t2) eqn:L; eauto 7. eauto 7.
-    destruct (eq_typ_dec T t) eqn:K'; try discriminate. eauto.
-    
-
-destruct (infer_typ e t1) as [[ | | ]|] eqn:K;
-    destruct (infer_typ e t2) eqn:L;
-    try destruct (eq_typ_dec _ _);
-    inv B. 
-    eauto.
-  - destruct (infer_typ _ _) eqn:K; inv B.
-    eauto.
-  - destruct (infer_kind e T) eqn:K;
-    destruct (infer_typ e t) as [[ | | p' U]|] eqn:L;
-    try destruct (le_dec k p') eqn:M; 
-    inv B.
-    pose proof (infer_kind_impl K). eauto.
-    apply cumulativity with (q:=p') in H; eauto.
+  induction t; simpl; eauto 10.
 Qed.
 
-Lemma infer_typ_conv e t T : 
-  (typing e t T) -> (infer_typ e t = Some T).
+Lemma infer_typ_conv t : 
+  forall e T, typing e t T -> infer_typ e t = Some T.
 Proof.
-  revert e T.
-  induction t; intros e T'; intros B; simpl; inv B.
-  - destruct (wf_env_dec e); auto.
-  - now rewrite (IHt _ _ H2).
-  - rewrite (IHt1 _ _ H1), (IHt2 _ _ H3).
-    destruct (eq_typ_dec _ _); congruence.
-  - now rewrite (IHt _ _ H2).
+  induction t; intros e T' B; simpl; inv B.
+  - eauto.
+  - now erewrite IHt.
+  - erewrite IHt2, IHt1 by eauto. 
+    simpl. eauto.
+  - now erewrite IHt.
   - apply infer_kind_conv in H3 as [k [C D]].
-    rewrite D, (IHt _ _ H1).
-    destruct (le_dec _ _); congruence.
+    erewrite D, IHt by eauto.
+    simpl. eauto.
 Qed.
 
 Inductive insert_kind : nat -> env -> env -> Prop :=
