@@ -147,7 +147,7 @@ Fixpoint get_kind e (n:nat) : (option kind) :=
 
 Fixpoint get_typ_aux e (n: nat) (m : nat) : (option typ) :=
   match e with
-    |(etvar m)::e' => get_typ_aux (e') n (1+m)
+    |(etvar q)::e' => get_typ_aux (e') n (1+m)
     |(evar T)::e' => match n with 0 => Some (tshift T m 0) | S n => get_typ_aux (e') n m end
     |nil => None
   end
@@ -460,10 +460,304 @@ Proof.
     eapply IHT; eauto.
 Qed.
 
+Lemma tshift_ident : forall T p , tshift T 0 p = T.
+Proof.
+  induction T.
+  - intros.
+    unfold tshift.
+    unfold shift_var.
+    destruct (le_dec p x) as []eqn:?.
+    + replace (0+x) with (x).
+      * reflexivity.
+      * omega.
+    + reflexivity.
+  - intros.
+    simpl.
+    replace (tshift T1 0 p) with T1.
+    + replace (tshift T2 0 p) with T2.
+      * reflexivity.
+      * symmetry.
+        apply (IHT2 p).
+    + symmetry.
+      apply (IHT1 p).
+  - intros.
+    simpl.
+    replace (tshift T 0 (S p)) with T.
+    + reflexivity.
+    + symmetry.
+      apply (IHT (S p)).
+Qed.
+
+Lemma shift_l : forall k T T0 l, tshift T0 k l = T -> tshift T0 (S k) l = tshift T 1 l.
+induction T.
+- intros.
+  destruct T0.
+  + simpl in *.
+    f_equal.
+    injection H as H1.
+    destruct (le_dec l x0) as []eqn:?.
+    * destruct (le_dec l x) as []eqn:? ; omega.
+    * destruct (le_dec l x) as []eqn:? ; omega.
+  + simpl. discriminate.
+  + simpl. discriminate.
+- intros.
+  destruct T0.
+  + simpl tshift in H.
+    discriminate.
+  + simpl tshift in *.
+    inversion H.
+    rewrite IHT1 ; auto.
+    rewrite IHT2 ; auto.
+    rewrite H1.
+    rewrite H2.
+    auto.
+  + simpl tshift in H.
+    discriminate.
+- intros.
+  destruct T0.
+  + simpl  in *.
+    discriminate.
+  + simpl in *.
+    discriminate.
+  + simpl tshift in *.
+    inversion H.
+    subst.
+    f_equal.
+    rewrite IHT ; auto.
+Qed.
+
+Lemma recur_lemma : forall T e k n, get_typ_aux e n k = Some T -> get_typ_aux e n (S k) = Some (tshift T 1 0).
+Proof.
+induction e.
+- intros.
+  simpl in *.
+  discriminate.
+- intros.
+  destruct a.
+  + simpl in *.
+    destruct n.
+    * f_equal.
+      injection H as H1.
+      simpl tshift in .
+      apply (shift_l H1).
+    * apply (IHe k n).
+      apply H.
+  + simpl.
+    apply (IHe (S k) n).
+    simpl get_typ_aux in H.
+    apply H.
+Qed.
+Lemma get_typ_aux_shift : forall T e k n, get_typ_aux e n 0 = Some T -> get_typ_aux e n k = Some (tshift T k 0).
+Proof.
+induction k.
+- intros.
+  induction e.
+  + simpl.
+    discriminate.
+  + destruct a.
+    * { simpl in *.
+        destruct n.
+        - f_equal.
+          f_equal.
+          injection H as H1.
+          transitivity (tshift T0 0 0).
+          + symmetry. 
+            apply tshift_ident.
+          + apply H1.
+        - replace (tshift T 0 0) with T.
+          + apply H.
+          + symmetry.
+            apply tshift_ident.
+            }
+    * { simpl in *.
+        replace (tshift T 0 0) with T.
+        - apply H.
+        - symmetry.
+          apply tshift_ident.
+      }
+- intros.
+  assert ( get_typ_aux e n k = Some (tshift T k 0)).
+  + specialize (IHk n).
+    apply IHk.
+    apply H.
+  + assert (get_typ_aux e n (S k) = Some (tshift (tshift T k 0) 1 0)).
+    * apply (recur_lemma H0).
+    * { transitivity (Some (tshift (tshift T k 0) 1 0)).
+          - apply H1. 
+          - symmetry.
+            f_equal. 
+            refine (shift_l _).
+            reflexivity.
+      }
+Qed.
+(*
+forall T e n, (forall k, get_typ_aux e n k = None) \/ (forall k, get_typ_aux e n k = Some (shift T k 0))
+*)
+
+Lemma get_typ_et : forall T e Y p, get_typ e Y = Some T -> get_typ (etvar p :: e) Y = Some (tshift T 1 0).
+Proof.
+(*
+induction Y.
+- induction e.
+  + intros.
+    simpl get_typ in H.
+    discriminate.
+  + intros.
+    simpl in *.
+    destruct a.
+    * { injection H as H1.
+        f_equal.
+        f_equal.
+        transitivity (tshift T0 0 0).
+        - symmetry.
+          apply tshift_ident.
+        - apply H1.
+      }
+    * { simpl in H .
+        destruct e0.
+        - admit.
+        -
+   *)  
+
+induction e.
+- intros.
+  simpl in H.
+  discriminate.
+- destruct a.
+  + intros.
+    simpl.
+    destruct Y.
+    * { simpl get_typ in H.
+        assert (tshift T0 0 0 = T0).
+        - apply (tshift_ident T0 0).
+        - injection H as H1.
+          replace T0 with T.
+          + reflexivity.
+          + transitivity (tshift T0 0 0).
+            * symmetry.
+              apply H1.
+            * apply H0.
+       }
+    * simpl get_typ in H.
+      now apply get_typ_aux_shift with (k :=1).
+  + intros.
+    simpl in *.
+    admit.
+Qed.
+
+Lemma get_type_insert_some e e' X Y T :
+  forall m p, insert_kind X e e' -> get_typ_aux e Y m = Some (tshift T (m+ p) 0) -> 
+  get_typ_aux e' Y m = Some (tshift (tshift T 1 (X-p)) (m+p) 0).
+Proof.
+  intros m p E. revert E Y T m p. intros D.
+
+(*
+ revert Y. revert D. revert e e' T.
+  induction (X-p).
+  - intros.
+    admit.
+  - intros.
+    rewrite IHn with (e := e) (T :=T).
+    +admit.
+    +auto.
+    +auto.
+    destruct e'.
+    + inversion D.
+    + destruct e0.
+      * { simpl in *.
+        - destruct Y.
+          + inversion D. subst.
+            do 2 f_equal.
+     *)  
+    
+  induction D.
+  - intros.
+    simpl get_typ in H.
+    simpl.
+    admit.
+    (*refine (get_typ_et p _).
+    apply E.*)
+  -intros.
+   simpl .
+   simpl in *.
+   destruct Y.
+   + admit.
+   + admit. 
+  - intros.
+    (*now apply IHD.*)
+    simpl get_typ_aux in *.
+(*    destruct p0.
+    + rewrite IHD with (p := -1).
+      *)
+      rewrite (IHD Y T (S m) (p0-1)).
+      + admit.
+      + 
+      destruct p0.
+      + admit.
+      + rewrite (IHD Y T (S m) (p0-1)) 
+    
+  
+    + admit.
+    + rewrite H. do 2 f_equal. omega.
+    simpl in *.
+    rewrite IHD with (p := p0).
+    simpl in *.
+ apply (IHD _ m E).
+ - intros.
+   simpl in *.
+   apply (IHD _ _ E).
+rewrite E.
+    + intros.
+      subst.
+      unfold get_typ.
+      unfold get_typ_aux.
+      simpl.
+      simpl in E.
+      apply E.
+      unfold get_typ.
+      unfold get_typ_aux.
+      destruct E.
+    simpl in *.
+    destruct Y.
+    + destruct (le_dec (S p) 0).
+      * omega.
+      * { unfold get_typ_aux.
+          destruct e.
+          - unfold get_typ in E.
+            unfold get_typ_aux in E.
+            apply E.
+          - destruct e.
+            + unfold get_typ in E.
+              unfold get_typ_aux in E.
+              unfold tshift in E.
+              
+          simpl in *.
+
+
+(*  intros D E.
+  revert E. revert Y.
+  induction D as [e p'| | ]; intros Y E.
+  - auto.
+  - simpl in *.
+    auto.
+  - simpl in *.
+    destruct Y.
+    + destruct (le_dec (S n) 0); [omega|auto].
+    + specialize (IHD Y E).
+      destruct (le_dec n Y);
+      destruct (le_dec (S n) (S Y));
+      auto; omega.*)
+
 (* TODO *)
 Lemma insert_kind_typing X e e' t T : 
   insert_kind X e e' -> typing e t T -> typing e' t T.
 Proof.
+  generalize T e e' X t.
+  induction T0.
+  - intros.
+    inversion H0.
+    subst.
+    refine (rvar H1 _ _). 
   admit.
 Qed.
 
