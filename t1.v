@@ -20,9 +20,9 @@ Hint Resolve
   Max.max_idempotent
   le_n_S.
 
-Hint Extern 4 =>
+Hint Extern 1 =>
   match goal with
-  | H: ?A , I: ?A -> False |- _ => exfalso; tauto
+  | [ H: ?A , I: ?A -> False |- _ ] => exfalso; apply (I H)
   end.
 
 Hint Extern 4 =>
@@ -286,20 +286,34 @@ Fixpoint infer_typ e t : option typ := match t with
 end.
 
 (* We prove correctness and minimality wrt inductive predicate [kinding] *)
+Hint Extern 4 =>
+  match goal with
+  | H: context[if wf_env_dec ?e then _ else _] |- _  =>
+  let K := fresh "K" in
+  destruct (wf_env_dec e) eqn:K; try discriminate
+  | H: context[match infer_kind ?e ?T with _ => _ end] |- _ =>
+  let K := fresh "K" in
+  destruct (infer_kind e T) eqn:K; try discriminate
+  | H: Some _ = Some _ |- _ => inversion H; subst
+  end.
+
+Hint Extern 2 =>
+match goal with
+  | H:_ |- context[wf_env_dec ?e] => 
+  let K := fresh "K" in
+  destruct (wf_env_dec e) eqn:K; try discriminate
+end.
+
+Hint Extern 4 =>
+match goal with
+  | H: Some _ = Some _ |- _ => inversion H; subst
+  end.
 
 Lemma infer_kind_impl e T p :
   infer_kind e T = Some p -> kinding e T p.
 Proof.
   revert e p.
-  induction T; intros e p A; simpl in A.
-  - destruct (wf_env_dec e); eauto.
-  - destruct (infer_kind e T1) eqn:K;
-    destruct (infer_kind e T2) eqn:L;
-    inv A. 
-    eauto.
-  - destruct (infer_kind _ T) eqn:K; 
-    inv A. 
-    eauto.
+  induction T; intros e p A; simpl in A; eauto 7.
 Qed.
 
 Lemma infer_kind_conv e T p :
@@ -307,19 +321,14 @@ Lemma infer_kind_conv e T p :
 Proof.
   revert e p.
   induction T; intros e p A; inv A; simpl.
-  - exists p0.
-    split; eauto.
-    destruct (wf_env_dec e); tauto.
-  - pose proof (IHT1 _ _ H1) as [q' [B C]].
-    pose proof (IHT2 _ _ H3) as [q'' [D E]].
-    destruct (infer_kind e T1) eqn:K;
-    destruct (infer_kind e T2) eqn:L;
-    inv C; inv E. 
+  - eauto.
+  - pose proof (IHT1 _ _ H1) as [? [? C]].
+    pose proof (IHT2 _ _ H3) as [? [? E]].
+    rewrite C, E.
     eauto.
-  - pose proof (IHT _ p0 H2) as [q' [B C]].
-    destruct (infer_kind _ T);
-    inv C. 
-    eauto.
+  - pose proof (IHT _ p0 H2) as [? [? ?]].
+    destruct (infer_kind _ T); 
+    eauto 7.
 Qed.
 
 (* Informal proof of minimality for kind inference
@@ -341,16 +350,43 @@ inferred p -> kinding q -> p <= q
   so p = r by (2) and (3).
 *)
 
+Hint Extern 2 =>
+match goal with
+  | H: context[if eq_typ_dec ?T ?T' then _ else _] |- _ =>
+  let K := fresh "K" in
+  destruct (eq_typ_dec T T') eqn:K; try discriminate
+end.
+
+Hint Extern 1 =>
+match goal with
+  | H: context[match infer_typ ?e ?T with _ => _ end] |- _ =>
+  let K := fresh "K" in
+  destruct (infer_typ e T) eqn:K; try discriminate
+end.
+
+Hint Extern 1 =>
+match goal with
+  | H: context[match (?t:typ) with _ => _ end] |- _ =>
+  let K := fresh "K" in
+  destruct t eqn:K; try discriminate
+end.
+
 Lemma infer_typ_impl e t T : 
   (infer_typ e t = Some T) -> (typing e t T).
 Proof.
   revert e T.
   induction t; intros e T' B; simpl in B.
-  - destruct (wf_env_dec e); eauto.
-  - destruct (infer_typ _ _) eqn:K; 
-    inv B.
-    eauto.
-  - destruct (infer_typ e t1) as [[ | | ]|] eqn:K;
+  - eauto.
+  - eauto.
+  - eauto 7. destruct (infer_typ e t1) eqn:K;
+destruct (infer_typ e t2) eqn:L; eauto.
+destruct t eqn:K'; try discriminate.
+eauto 15. destruct (infer_typ e t1) as [[ | | ]|] eqn:K;
+    destruct (infer_typ e t2) eqn:L; eauto 7. eauto 7.
+    destruct (eq_typ_dec T t) eqn:K'; try discriminate. eauto.
+    
+
+destruct (infer_typ e t1) as [[ | | ]|] eqn:K;
     destruct (infer_typ e t2) eqn:L;
     try destruct (eq_typ_dec _ _);
     inv B. 
