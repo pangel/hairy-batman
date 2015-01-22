@@ -83,6 +83,15 @@ Fixpoint tshift T (m : nat) (p : nat) :=
   end
 .
 
+Fixpoint tshift_in_term t (m p : nat) :=
+  match t with
+  | var x => var x
+  | abs U s => abs (tshift U m p) (tshift_in_term s m p)
+  | app s u => app (tshift_in_term s m p) (tshift_in_term u m p) 
+  | tabs n t => tabs n (tshift_in_term t m (1+p))
+  | tapp s U => tapp (tshift_in_term s m p) (tshift U m p)
+  end.
+
 Definition Tex := all (0) (arrow (tvar (1)) (tvar(2))).
 
 Fixpoint tsubstaux T (n : nat) V (prof : nat) := 
@@ -156,7 +165,7 @@ Fixpoint get_typ_aux e (n: nat) (m : nat) : (option typ) :=
   end
 .
 
-Fixpoint get_typ e (n:nat) : (option typ) :=
+Definition get_typ e (n:nat) : (option typ) :=
  get_typ_aux e n 0
 .
 
@@ -341,6 +350,7 @@ Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
 | iskip n T e e' : insert_kind n e e' -> insert_kind n ((evar T)::e) ((evar (tshift T 1 n))::e')
 | icons n p e e' : insert_kind n e e' -> insert_kind (S n) ((etvar p)::e) ((etvar p)::e').
+Hint Constructors insert_kind.
 
 Lemma get_kind_insert_some e e' X Y p :
   insert_kind X e e' -> get_kind e Y = Some p -> get_kind e' (shift_var Y X 1) = Some p.
@@ -602,119 +612,131 @@ induction e.
     admit.
 Qed.
 
-Lemma get_type_insert_some e e' X Y T :
-  forall m p, insert_kind X e e' -> get_typ_aux e Y m = Some (tshift T (m+ p) 0) -> 
-  get_typ_aux e' Y m = Some (tshift (tshift T 1 (X-p)) (m+p) 0).
+Lemma get_typ_plusone : 
+  forall T Y e, get_typ_aux e Y 0 = Some T -> get_typ_aux e Y 1 = Some (tshift T 1 0).
 Proof.
-  intros m p E. revert E Y T m p. intros D.
+  admit.
+Qed.
 
-(*
- revert Y. revert D. revert e e' T.
-  induction (X-p).
-  - intros.
-    admit.
-  - intros.
-    rewrite IHn with (e := e) (T :=T).
-    +admit.
-    +auto.
-    +auto.
-    destruct e'.
-    + inversion D.
-    + destruct e0.
-      * { simpl in *.
-        - destruct Y.
-          + inversion D. subst.
-            do 2 f_equal.
-     *)  
-    
-  induction D.
-  - intros.
-    simpl get_typ in H.
-    simpl.
-    admit.
-    (*refine (get_typ_et p _).
-    apply E.*)
-  -intros.
-   simpl .
-   simpl in *.
-   destruct Y.
-   + admit.
-   + admit. 
-  - intros.
-    (*now apply IHD.*)
-    simpl get_typ_aux in *.
-(*    destruct p0.
-    + rewrite IHD with (p := -1).
-      *)
-      rewrite (IHD Y T (S m) (p0-1)).
-      + admit.
-      + 
-      destruct p0.
-      + admit.
-      + rewrite (IHD Y T (S m) (p0-1)) 
-    
-  
-    + admit.
-    + rewrite H. do 2 f_equal. omega.
-    simpl in *.
-    rewrite IHD with (p := p0).
-    simpl in *.
- apply (IHD _ m E).
- - intros.
-   simpl in *.
-   apply (IHD _ _ E).
-rewrite E.
-    + intros.
-      subst.
-      unfold get_typ.
-      unfold get_typ_aux.
-      simpl.
-      simpl in E.
-      apply E.
-      unfold get_typ.
-      unfold get_typ_aux.
-      destruct E.
-    simpl in *.
-    destruct Y.
-    + destruct (le_dec (S p) 0).
-      * omega.
-      * { unfold get_typ_aux.
-          destruct e.
-          - unfold get_typ in E.
-            unfold get_typ_aux in E.
-            apply E.
-          - destruct e.
-            + unfold get_typ in E.
-              unfold get_typ_aux in E.
-              unfold tshift in E.
-              
-          simpl in *.
+Lemma tshift_commut T :
+  forall a c d, tshift (tshift T a 0) c d = tshift (tshift T c (d-a)) a 0.
+admit.
+Qed.
+
+Lemma tshift_commut_0 T :
+  forall a b, tshift (tshift T a 0) b 0 = tshift (tshift T b 0) a 0.
+admit.
+Qed.
 
 
-(*  intros D E.
-  revert E. revert Y.
-  induction D as [e p'| | ]; intros Y E.
-  - auto.
-  - simpl in *.
-    auto.
-  - simpl in *.
-    destruct Y.
-    + destruct (le_dec (S n) 0); [omega|auto].
-    + specialize (IHD Y E).
-      destruct (le_dec n Y);
-      destruct (le_dec (S n) (S Y));
-      auto; omega.*)
+
+Lemma get_typ_aux_1 e Y T : 
+  get_typ_aux e Y 1 = Some T -> exists T', T = tshift T' 1 0 /\ get_typ_aux e Y 0 = Some T'.
+admit.
+Qed.
+
+Lemma tshift_rem1 T U p k : tshift T (S p) 0 = tshift U (S k) 0 -> tshift T p 0 = tshift U k 0.
+admit.
+Qed.
+
+Lemma tshift_plus1 T p : tshift T (S p) 0 = tshift (tshift T p 0) 1 0.
+admit.
+Qed.
+
+Lemma tshift_swap1 T n : tshift (tshift T 1 n) 1 0 = tshift (tshift T 1 0) 1 (S n).
+admit.
+Qed.
+
+Lemma tshift_swapN T X p : tshift (tshift T 1 (X-p)) p 0 = tshift (tshift T p 0) 1 X.
+admit.
+Qed.
+
+Lemma tshift_shape : forall e T' n, get_typ_aux e n 0 = Some T' -> exists k T'', T' = tshift T'' k 0.
+admit.
+Qed.
+
+
+
+Lemma get_type_insert_some e e' X :
+  insert_kind X e e' -> forall Y p T, 
+  get_typ_aux e Y 0 = Some (tshift T p 0) -> 
+  get_typ_aux e' Y 0 = Some (tshift (tshift T 1 (X-p)) p 0).
+Proof.
+induction 1; simpl get_typ_aux; intros Y p' T0 A. 
+- rewrite tshift_commut_0. 
+  now apply get_typ_plusone.
+- destruct Y; eauto.
+  rewrite tshift_ident in *.
+  inv A.
+  now rewrite tshift_commut.
+- apply get_typ_aux_1 in A as [T' [A B]].
+  destruct p' as [|p'].
+  + rewrite tshift_ident in A. 
+    replace T' with (tshift T' 0 0) in B.
+    subst.
+    * specialize (IHinsert_kind _ _ _ B).
+      rewrite tshift_ident in *.
+      simpl in *.
+      apply get_typ_plusone in IHinsert_kind.
+      rewrite IHinsert_kind.
+      rewrite <- minus_n_O.      
+      now rewrite tshift_swap1.      
+    * apply tshift_ident.   
+  + apply tshift_rem1 in A.
+    rewrite tshift_ident in A.
+    subst.
+    specialize (IHinsert_kind _ _ _ B).
+    apply get_typ_plusone in IHinsert_kind.
+    rewrite IHinsert_kind.
+    f_equal. 
+    replace (S n - S p') with (n - p') by omega.
+    now rewrite <- tshift_plus1.
+Qed.
+
+Arguments get_typ / _ _.
 
 (* TODO *)
 Lemma insert_kind_typing X e e' t T : 
-  insert_kind X e e' -> typing e t T -> typing e' t T.
+  insert_kind X e e' -> typing e t T -> typing e' (tshift_in_term t 1 X) (tshift T 1 X).
 Proof.
-  generalize T e e' X t.
-  induction T0.
-  - intros.
-    inversion H0.
-    subst.
-    refine (rvar H1 _ _). 
+  intros.
+  revert H. revert X e'.
+  induction H0; intros.
+  - pose proof (tshift_shape H) as (k & T'' & A); subst.
+    pose proof (get_type_insert_some H1 H).
+    rewrite tshift_swapN in H2.
+    apply (insert_kind_wf_env H1) in H0.
+    simpl.
+    eauto.
+  - simpl. apply rabs.
+    apply IHtyping.
+(*    shift seems bad. should shift in the term in typing definition?!*)
+  admit.
+  - simpl. eauto.
+  - simpl. eauto.
+  - simpl in *. 
+    pose proof (insert_kind_kinding H1 H). 
+(* on veut
+
+  typing 
+    e' 
+    (tapp (tshift_in_term t 1 X) (tshift U 1 X))
+    (tshift (tsubst T U 0) 1 X)
+
+il faut montrer que
+
+  kinding e' (tshift U 1 X) p --- OK
+
+  (tshift (tsubst T U 0) 1 X) = tsubst T' U' 0, 
+  avec T' = tshift T 1 (S X), 
+       U' = tshift U 1 X
+  
+  typing
+    e'
+    (tshift_in_term t 1 X)
+    (all p T')
+
+*)
   admit.
 Qed.
 
