@@ -75,6 +75,20 @@ Definition shift_var n floor inc :=
   if (le_dec floor n) then inc+n else n.
 Arguments shift_var / _ _ _.
 
+Fixpoint tshiftone T p := 
+  match T with
+    | tvar n => tvar (shift_var n p 1)
+    | arrow A B => arrow (tshiftone A p) (tshiftone B p)
+    | all k u => all (k) (tshiftone u (1+p))
+  end
+.
+
+Fixpoint tshiftrec T m p := 
+  match m with
+    | S n => tshiftone (tshiftrec (T) n p) (p+n)
+    | 0 => T
+  end
+. 
 Fixpoint tshift T (m : nat) (p : nat) := 
   match T with
     | tvar n => tvar (shift_var n p m)
@@ -165,6 +179,14 @@ Fixpoint get_typ_aux e (n: nat) (m : nat) : (option typ) :=
   end
 .
 
+Fixpoint get_typ_aux_no_shift e (n: nat) (m : nat) : (option typ) :=
+  match e with
+    |(etvar q)::e' => get_typ_aux_no_shift (e') n (1+m)
+    |(evar T)::e' => match n with 0 => Some (T) | S n => get_typ_aux_no_shift (e') n m end
+    |nil => None
+  end
+.
+
 Definition get_typ e (n:nat) : (option typ) :=
  get_typ_aux e n 0
 .
@@ -206,7 +228,7 @@ Inductive kinding e : typ -> kind -> Prop :=
 Inductive typing e : term -> typ -> Prop :=
 | rvar x T : get_typ e x = Some T -> wf_env e -> typing e (var x) T
 (* not sure about tshift *)
-| rabs t T U : typing ((evar (tshift T 1 0))::e) t U -> typing e (abs T t) (arrow T U)
+| rabs t T U : typing ((evar T)::e) t U -> typing e (abs T t) (arrow T U)
 | rapp t u T U : typing e t (arrow T U) -> typing e u T -> typing e (app t u) U
 | rtabs t T p : typing ((etvar p)::e) t T -> typing e (tabs p t) (all p T)
 | rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (tapp t U) (tsubst T U 0).
@@ -514,6 +536,7 @@ induction e.
     simpl get_typ_aux in H.
     apply H.
 Qed.
+
 Lemma get_typ_aux_shift : forall T e k n, get_typ_aux e n 0 = Some T -> get_typ_aux e n k = Some (tshift T k 0).
 Proof.
 induction k.
@@ -612,20 +635,160 @@ induction e.
     admit.
 Qed.
 
-Lemma get_typ_plusone : 
-  forall T Y e, get_typ_aux e Y 0 = Some T -> get_typ_aux e Y 1 = Some (tshift T 1 0).
+Lemma tshift_commut T :
+  forall a c d (p : nat) , tshift (tshift T a p) c (d+p) = tshift (tshift T c (d-a+p)) a (p).
 Proof.
-  admit.
+induction T; intros a c d p.
+- simpl in * ; f_equal.
+(*
+  destruct (ge_dec x p); 
+  destruct (ge_dec (x+a) (d+p)) ; 
+  destruct (ge_dec x (d-a+p)) ; 
+  destruct (ge_dec (x+c) (p)) ; 
+*)
+  destruct (le_dec p x) ; 
+  destruct (le_dec (d-a+p) x); 
+  destruct (le_dec (d + p) (a + x));
+  destruct (le_dec (d + p) (x)); 
+  destruct (le_dec (p) (c+ x));
+  destruct (le_dec (p) (x));try omega.
+- simpl in *. 
+  rewrite IHT1.
+  rewrite IHT2.
+  reflexivity.
+- simpl in *.
+  replace (S (d+p)) with (d + (S p)) by omega.
+  rewrite IHT with (p := (S p)). do 3 f_equal. omega.
+  
 Qed.
 
-Lemma tshift_commut T :
-  forall a c d, tshift (tshift T a 0) c d = tshift (tshift T c (d-a)) a 0.
-admit.
+Hint Extern 1 => 
+match goal with
+| |- context [le_dec ?a ?b] => destruct (le_dec a b); try omega
+| H : context [le_dec ?a ?b] |- _ => destruct (le_dec a b); try omega
+end.
+
+(*
+Lemma mgte T :
+  forall a c d (p : nat) (m: nat), tshift (tshift T a p) (m+c) (d+p) = tshift (tshift T c (d-a+p)) (m+a) (p).
+Proof.
+induction T; intros a c d p m.
+- simpl in * ; f_equal.
+  eauto 30.
+  debug eauto.
+(*
+  destruct (ge_dec x p); 
+  destruct (ge_dec (x+a) (d+p)) ; 
+  destruct (ge_dec x (d-a+p)) ; 
+  destruct (ge_dec (x+c) (p)) ; 
+*)
+  destruct (le_dec p x) ; 
+  destruct (le_dec (d-a+p) x); 
+  destruct (le_dec (d + p) (a + x));
+  destruct (le_dec (d + p) (x)); 
+  destruct (le_dec (p) (c+ x));
+  destruct (le_dec (p) (x));try omega.
+- simpl in *. 
+  rewrite IHT1.
+  rewrite IHT2.
+  reflexivity.
+- simpl in *.
+  replace (S (d+p)) with (d + (S p)) by omega.
+  rewrite IHT with (p := (S p)). do 3 f_equal. omega.
+  
 Qed.
+*)
+
+Lemma tshift_plus1_m T p : forall m, tshift T (S p) m = tshift (tshift T 1 m) p (m+1).
+Proof.
+induction T.
+- intros.
+  simpl in *.
+  eauto.
+- intros.
+  simpl in *.
+  rewrite IHT1.
+  rewrite IHT2.
+  auto.
+- intros.
+  simpl in *.
+  rewrite IHT.
+  f_equal.
+Qed.
+
+Lemma tshift_plus1 T p :  tshift T (S p) 0 = tshift (tshift T 1 0) p 0.
+Proof.
+transitivity (tshift (tshift T 1 0) p 1).
+- apply tshift_plus1_m.
+- transitivity (tshift (tshift T p 0) 1 0). 
+  + apply (tshift_commut T 1 p 1 0) .
+  + apply (tshift_commut T p 1 0 0) .
+Qed.
+
+Lemma tshift_plus1_conv T p :  tshift T (S p) 0 = tshift (tshift T p 0) 1 0.
+Proof.
+transitivity (tshift (tshift T 1 0) p 0).
+- apply tshift_plus1.
+- apply (tshift_commut T 1 p 0 0).
+Qed.
+
+
+Lemma get_typ_plusone : 
+  forall e Y T n, get_typ_aux e Y n = Some T -> get_typ_aux e Y (S n) = Some (tshift T 1 0).
+Proof.
+  induction e.
+  - intros.
+    simpl in *.
+    discriminate.
+  - destruct a.
+    + simpl in *.
+      destruct Y.
+      * { intros.
+          injection H as H1.
+          f_equal.
+          replace T0 with (tshift T n 0).
+          apply tshift_plus1_conv.
+        }
+      * { intros.
+          eauto.
+         }
+    + simpl in *.
+      intros.
+      rewrite IHe with (T :=T) ; auto.
+Qed.
+
+(*
+Lemma tshift_commut T :
+  forall a c d (p : nat), tshift (tshift T a p) c (d+p) = tshift (tshift T c (d-a+p)) a (p).
+Proof.
+induction T; intros a c d p.
+- simpl in * ; f_equal.
+(*
+  destruct (ge_dec x p); 
+  destruct (ge_dec (x+a) (d+p)) ; 
+  destruct (ge_dec x (d-a+p)) ; 
+  destruct (ge_dec (x+c) (p)) ; 
+*)
+  destruct (le_dec p x) ; 
+  destruct (le_dec (d-a+p) x); 
+  destruct (le_dec (d + p) (a + x));
+  destruct (le_dec (d + p) (x)); 
+  destruct (le_dec (p) (c+ x));
+  destruct (le_dec (p) (x));try omega.
+- simpl in *. 
+  rewrite IHT1.
+  rewrite IHT2.
+  reflexivity.
+- simpl in *.
+  replace (S (d+p)) with (d + (S p)) by omega.
+  rewrite IHT with (p := (S p)). do 3 f_equal. omega.
+  
+Qed.
+*)
 
 Lemma tshift_commut_0 T :
   forall a b, tshift (tshift T a 0) b 0 = tshift (tshift T b 0) a 0.
-admit.
+  admit.
 Qed.
 
 
@@ -635,16 +798,48 @@ Lemma get_typ_aux_1 e Y T :
 admit.
 Qed.
 
-Lemma tshift_rem1 T U p k : tshift T (S p) 0 = tshift U (S k) 0 -> tshift T p 0 = tshift U k 0.
-admit.
+Lemma tshift_inject T U : forall m,  tshift T 1 m = tshift U 1 m -> T = U.
+revert T U.
+induction T.
+- destruct U; try discriminate ; try f_equal.
+  simpl in *.
+  intros.
+  injection H as H1. f_equal. 
+  auto.
+- destruct U; try discriminate.
+  intros. simpl in *.
+  injection H as H1 H2.
+  f_equal.
+  + rewrite (IHT1 U1 m) ; auto.
+  + rewrite (IHT2 U2 m) ; auto.
+- destruct U; try discriminate.
+  simpl in *.
+  intros.
+  injection H as H1 H2.
+  f_equal.
+  + apply H2.
+  + rewrite (IHT U (S m)) ;auto.
 Qed.
 
-Lemma tshift_plus1 T p : tshift T (S p) 0 = tshift (tshift T p 0) 1 0.
-admit.
+Lemma tshift_rem1 T U p k : tshift T (S p) 0 = tshift U (S k) 0 -> tshift T p 0 = tshift U k 0.
+Proof.
+intros.
+refine (@tshift_inject _ _  0 _).
+replace (tshift (tshift T p 0) 1 0) with (tshift T (S p) 0).
+- replace (tshift (tshift U k 0) 1 0) with (tshift U (S k) 0).
+  + apply H.
+  + apply tshift_plus1_conv.
+- apply tshift_plus1_conv.
 Qed.
+
+
 
 Lemma tshift_swap1 T n : tshift (tshift T 1 n) 1 0 = tshift (tshift T 1 0) 1 (S n).
-admit.
+Proof.
+symmetry.
+replace (S n) with (n + 1 + 0) by omega.
+replace (n) with (n + 1 -1 + 0) at 2 by omega.
+apply (tshift_commut T 1 1 (n+1) 0).
 Qed.
 
 Lemma tshift_swapN T X p : tshift (tshift T 1 (X-p)) p 0 = tshift (tshift T p 0) 1 X.
@@ -663,12 +858,17 @@ Lemma get_type_insert_some e e' X :
   get_typ_aux e' Y 0 = Some (tshift (tshift T 1 (X-p)) p 0).
 Proof.
 induction 1; simpl get_typ_aux; intros Y p' T0 A. 
-- rewrite tshift_commut_0. 
+- replace (0-p') with 0 by omega.
+  replace 0 with (0+0) at 4 by omega.
+  rewrite (tshift_commut T0 1 p' 0 0).
+  replace (0-1+0) with 0 by omega.
   now apply get_typ_plusone.
 - destruct Y; eauto.
   rewrite tshift_ident in *.
   inv A.
-  now rewrite tshift_commut.
+  f_equal.
+  replace (n-p') with (n-p'+0) by omega.
+  rewrite <- tshift_commut . do 2 f_equal. auto.
 - apply get_typ_aux_1 in A as [T' [A B]].
   destruct p' as [|p'].
   + rewrite tshift_ident in A. 
@@ -690,19 +890,40 @@ induction 1; simpl get_typ_aux; intros Y p' T0 A.
     rewrite IHinsert_kind.
     f_equal. 
     replace (S n - S p') with (n - p') by omega.
-    now rewrite <- tshift_plus1.
+    now rewrite <- tshift_plus1_conv.
 Qed.
 
 Arguments get_typ / _ _.
 
-(* TODO *)
 Lemma insert_kind_typing X e e' t T : 
   insert_kind X e e' -> typing e t T -> typing e' (tshift_in_term t 1 X) (tshift T 1 X).
 Proof.
+(*
+  intros.
+  revert H0.
+  revert t.
+  revert T.
+  induction H.
+  - intros.
+    inversion H0.
+    + simpl in *.
+      refine (rvar _ _).
+      * admit.
+      * simpl. apply H1.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+  - admit.
+  - intros.
+    inversion H0.
+    + simpl in *.
+*)
+
   intros.
   revert H. revert X e'.
   induction H0; intros.
-  - pose proof (tshift_shape H) as (k & T'' & A); subst.
+  - simpl in *. pose proof (tshift_shape H) as (k & T'' & A); subst.
     pose proof (get_type_insert_some H1 H).
     rewrite tshift_swapN in H2.
     apply (insert_kind_wf_env H1) in H0.
