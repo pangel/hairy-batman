@@ -323,15 +323,13 @@ Lemma infer_kind_conv T :
 Proof.
   induction T; intros e p A; inv A; simpl.
   - eauto.
-  - pose proof (IHT1 _ _ H1) as [? [? C]].
-    pose proof (IHT2 _ _ H3) as [? [? E]].
-    rewrite C, E.
-    eauto.
-  - pose proof (IHT _ p0 H2) as [? [? ?]].
-    destruct (infer_kind _ T); 
+  - apply IHT1 in H1 as (? & ? & ?).
+    apply IHT2 in H3 as (? & ? & ?).
+    eauto 8.
+  - apply IHT in H2 as (? & ? & ?).
     eauto 7.
 Qed.
-(*
+
 Lemma infer_typ_impl t : 
   forall e T, infer_typ e t = Some T -> typing e t T.
 Proof.
@@ -344,14 +342,13 @@ Proof.
   induction t; intros e T' B; simpl; inv B.
   - eauto.
   - now erewrite IHt.
-  - erewrite IHt2, IHt1 by eauto. 
-    simpl. eauto.
+  - erewrite IHt2, IHt1; eauto; simpl; eauto.
   - now erewrite IHt.
   - apply infer_kind_conv in H3 as [k [C D]].
     erewrite D, IHt by eauto.
     simpl. eauto.
 Qed.
-*)
+
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
 | iskip n T e e' : insert_kind n e e' -> insert_kind n ((evar T)::e) ((evar (tshift T 1 n))::e')
@@ -619,33 +616,6 @@ induction e.
     admit.
 Qed.
 
-Lemma tshift_commut T :
-  forall a c d (p : nat) , tshift (tshift T a p) c (d+p) = tshift (tshift T c (d-a+p)) a (p).
-Proof.
-induction T; intros a c d p.
-- simpl in * ; f_equal.
-(*
-  destruct (ge_dec x p); 
-  destruct (ge_dec (x+a) (d+p)) ; 
-  destruct (ge_dec x (d-a+p)) ; 
-  destruct (ge_dec (x+c) (p)) ; 
-*)
-  destruct (le_dec p x) ; 
-  destruct (le_dec (d-a+p) x); 
-  destruct (le_dec (d + p) (a + x));
-  destruct (le_dec (d + p) (x)); 
-  destruct (le_dec (p) (c+ x));
-  destruct (le_dec (p) (x));try omega.
-- simpl in *. 
-  rewrite IHT1.
-  rewrite IHT2.
-  reflexivity.
-- simpl in *.
-  replace (S (d+p)) with (d + (S p)) by omega.
-  rewrite IHT with (p := (S p)). do 3 f_equal. omega.
-  
-Qed.
-
 Hint Extern 1 => 
 match goal with
 | |- context [le_dec ?a ?b] => destruct (le_dec a b); try omega
@@ -653,36 +623,18 @@ match goal with
 | H : context [le_dec ?a ?b] |- _ => destruct (le_dec a b); try omega
 end.
 
-(*
-Lemma mgte T :
-  forall a c d (p : nat) (m: nat), tshift (tshift T a p) (m+c) (d+p) = tshift (tshift T c (d-a+p)) (m+a) (p).
+Lemma tshift_commut T :
+  forall a c d (p : nat) , tshift (tshift T a p) c (d+p) = tshift (tshift T c (d-a+p)) a (p).
 Proof.
-induction T; intros a c d p m.
-- simpl in * ; f_equal.
-  eauto 30.
-  debug eauto.
-(*
-  destruct (ge_dec x p); 
-  destruct (ge_dec (x+a) (d+p)) ; 
-  destruct (ge_dec x (d-a+p)) ; 
-  destruct (ge_dec (x+c) (p)) ; 
-*)
-  destruct (le_dec p x) ; 
-  destruct (le_dec (d-a+p) x); 
-  destruct (le_dec (d + p) (a + x));
-  destruct (le_dec (d + p) (x)); 
-  destruct (le_dec (p) (c+ x));
-  destruct (le_dec (p) (x));try omega.
-- simpl in *. 
-  rewrite IHT1.
-  rewrite IHT2.
-  reflexivity.
-- simpl in *.
+induction T; intros a c d p; simpl in *.
+- f_equal; eauto 7.
+- f_equal; eauto.
+- simpl. 
   replace (S (d+p)) with (d + (S p)) by omega.
-  rewrite IHT with (p := (S p)). do 3 f_equal. omega.
-  
+  rewrite IHT with (p := (S p)). 
+  do 3 f_equal. 
+  omega.
 Qed.
-*)
 
 Lemma tshift_plus1_m T p : forall m, tshift T (S p) m = tshift (tshift T 1 m) p (m+1).
 Proof.
@@ -742,41 +694,10 @@ Proof.
       rewrite IHe with (T :=T) ; auto.
 Qed.
 
-(*
-Lemma tshift_commut T :
-  forall a c d (p : nat), tshift (tshift T a p) c (d+p) = tshift (tshift T c (d-a+p)) a (p).
-Proof.
-induction T; intros a c d p.
-- simpl in * ; f_equal.
-(*
-  destruct (ge_dec x p); 
-  destruct (ge_dec (x+a) (d+p)) ; 
-  destruct (ge_dec x (d-a+p)) ; 
-  destruct (ge_dec (x+c) (p)) ; 
-*)
-  destruct (le_dec p x) ; 
-  destruct (le_dec (d-a+p) x); 
-  destruct (le_dec (d + p) (a + x));
-  destruct (le_dec (d + p) (x)); 
-  destruct (le_dec (p) (c+ x));
-  destruct (le_dec (p) (x));try omega.
-- simpl in *. 
-  rewrite IHT1.
-  rewrite IHT2.
-  reflexivity.
-- simpl in *.
-  replace (S (d+p)) with (d + (S p)) by omega.
-  rewrite IHT with (p := (S p)). do 3 f_equal. omega.
-  
-Qed.
-*)
-
 Lemma tshift_commut_0 T :
   forall a b, tshift (tshift T a 0) b 0 = tshift (tshift T b 0) a 0.
   admit.
 Qed.
-
-
 
 Lemma get_typ_aux_1 e Y T : 
   get_typ_aux e Y 1 = Some T -> exists T', T = tshift T' 1 0 /\ get_typ_aux e Y 0 = Some T'.
