@@ -347,7 +347,7 @@ Proof.
     destruct (infer_kind _ T); 
     eauto 7.
 Qed.
-
+(*
 Lemma infer_typ_impl t : 
   forall e T, infer_typ e t = Some T -> typing e t T.
 Proof.
@@ -367,7 +367,7 @@ Proof.
     erewrite D, IHt by eauto.
     simpl. eauto.
 Qed.
-
+*)
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
 | iskip n T e e' : insert_kind n e e' -> insert_kind n ((evar T)::e) ((evar (tshift T 1 n))::e')
@@ -665,6 +665,7 @@ Qed.
 Hint Extern 1 => 
 match goal with
 | |- context [le_dec ?a ?b] => destruct (le_dec a b); try omega
+| |- context [eq_nat_dec ?a ?b] => destruct (eq_nat_dec a b); try omega
 | H : context [le_dec ?a ?b] |- _ => destruct (le_dec a b); try omega
 end.
 
@@ -894,7 +895,55 @@ induction 1; simpl get_typ_aux; intros Y p' T0 A.
 Qed.
 
 Arguments get_typ / _ _.
+Compute (tshift (tsubst (tvar (1)) (tvar(0)) 0) 1 1).
+Compute (tsubst (tshift (tvar 1) 1 1) (tshift (tvar(0)) 1 1) 0).
 
+(*
+
+Lemma subst_shift_commute : forall T U X, tshift (tsubst T U 0) 1 X = tsubst (tshift T 1 (S X)) (tshift U 1 X) 0.
+Proof.
+intros.
+revert U X.
+induction T.
+- simpl in *.
+  unfold tsubst.
+  simpl in *.
+  intros.
+  destruct (eq_nat_dec x 0).
+  + replace (tshift U 0 0) with U.
+    * { destruct (le_dec (S X) x) ; try omega.
+        destruct (eq_nat_dec x 0) ; try omega.
+        symmetry.
+        apply tshift_ident.
+      }
+    * symmetry. apply tshift_ident.
+  + destruct (le_dec (S X) x) ; try omega.
+    * { destruct (eq_nat_dec (S x) 0); try omega.
+        simpl.
+        destruct (le_dec X x) ; try omega.
+        reflexivity.
+      }
+    * { destruct (eq_nat_dec x 0); try omega.
+        simpl.
+        destruct (le_dec X x); try omega.
+        - f_equal.
+          exfalso.
+          admit.
+        - admit.
+    }
+- intros.
+  unfold tsubst in * .
+  simpl in *.
+  f_equal.
+  + rewrite IHT1 ; auto.
+  + rewrite IHT2 ; auto.
+- intros.
+  unfold tsubst in *.
+  simpl in *.
+  f_equal.
+  admit.
+Qed.
+    *)    
 Lemma insert_kind_typing X e e' t T : 
   insert_kind X e e' -> typing e t T -> typing e' (tshift_in_term t 1 X) (tshift T 1 X).
 Proof.
@@ -929,21 +978,18 @@ Proof.
     apply (insert_kind_wf_env H1) in H0.
     simpl.
     eauto.
+(*<<<<<<< HEAD*)
   - simpl. eauto.
   - simpl. eauto.
   - simpl. eauto.
   - simpl in *. 
     pose proof (insert_kind_kinding H1 H).
     rtapp 
-(* comme
-
+(* comme on veut
   rtapp
      : forall e t T' U' p,
        typing e t (all p T') ->tshift
        kinding e U' p -> typing e (tapp t U') (tsubst T' U' 0)
-
-on veut
-
   typing 
     e' 
     (tapp (tshift_in_term t 1 X) (tshift U 1 X))
@@ -955,8 +1001,14 @@ il faut montrer que
 
   (tshift (tsubst T U 0) 1 X) = tsubst T' U' 0, 
   avec T' = tshift T 1 (S X), 
-       U' = tshift U 1 X
-  
+       U' = tshift U 1 X      --- FAUX
+
+  => 
+   
+   Compute (tshift (tsubst (tvar (1)) (tvar(0)) 0) 1 1).
+   Compute (tsubst (tshift (tvar 1) 1 1) (tshift (tvar(0)) 1 1) 0).
+  <=
+
   typing
     e'
     (tshift_in_term t 1 X)
