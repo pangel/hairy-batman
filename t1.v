@@ -930,14 +930,14 @@ Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
 admit.
 Qed.
 Lemma subst_preserves_typing_test :
-  forall e x t u T U p m,
+  forall e x t u T U p m q,
   typing e t T ->
-  typing (remove_var e (x+p)) u (tshift U m 0) -> get_typ_aux e (x+p) m = Some (tshift U m 0) ->
+  typing (remove_var e (x+p)) u U -> get_typ_aux e (x+p) m = Some (tshift U (q) 0) ->
   typing (remove_var e (x+p)) (substaux t (x+p) u p) T.
 Proof.
   intros e x t. revert e x.
   induction t as [y | | | | ].
-  - intros e x u T U p m A B C.
+  - intros e x u T U p m q A B C.
     unfold subst.
     simpl.
     destruct (le_dec (x+p) y);
@@ -951,6 +951,9 @@ Proof.
       (*rewrite shift_noop.
       inversion A.
       now rewrite C in H0; inversion H0; subst.*)
+      inversion A.
+      subst.
+      unfold get_typ in H0.
       admit.
     + inv A.
       apply remove_var_preserve_wf_env with (x:=(x+p)) in H1.
@@ -961,7 +964,7 @@ Proof.
     inv H. simpl. apply rabs.
     replace (evar T :: remove_var e (x + p)) with (remove_var (evar T :: e) (S (x+p))).
     * { replace (S (x+p)) with (x + S (p)) by omega.
-        refine (IHt (evar T :: e) x u U0 U (S p) m _ _ _).
+        refine (IHt (evar T :: e) x u U0 U (S p) m q _ _ _).
         - apply H5.
         - admit.
         - simpl. 
@@ -974,17 +977,24 @@ Proof.
     simpl in *.
     inv H.
     refine (@rapp (remove_var e (x + p)) (substaux t1 (x + p) u p) ((substaux t2 (x + p) u p)) T0 T _ _).
-    + refine (IHt1 e x u (arrow T0 T) U p m _ _ _) ; eauto.
-    + refine (IHt2 e x u (T0) U p m _ _ _) ; eauto.
+    + refine (IHt1 e x u (arrow T0 T) U p m q _ _ _) ; eauto.
+    + refine (IHt2 e x u (T0) U p m q _ _ _) ; eauto.
   - intros.
     simpl in *.
     inv H.
     refine (@rtabs (remove_var e (x + p)) (substaux t (x + p) u p) T0 n _).
     replace (etvar n :: remove_var e (x + p)) with (remove_var (etvar n :: e) (x + p)).
-    + refine (IHt (etvar n :: e) x u T0 U p (m) _ _ _) ;auto.
-      * simpl. admit.
-      * simpl. admit. (*<========== PROBLEME*)
+    + refine (IHt (etvar n :: e) x u T0 U p (m) (1+ q) _ _ _) ;auto.
+      * simpl. admit. (*<========== OK*)
+      * simpl. admit. (*<========== OK*)
     + simpl in *. auto.
+  - intros.
+    simpl in *.
+    inv H.
+    refine (@rtapp (remove_var e (x + p)) (substaux t (x + p) u p) T1 T p0 _ _).
+    + refine (IHt (e) x u (all p0 T1) U p (m) q _ _ _) ;auto.
+    + admit. (* <======= OK*)
+Qed.
 
 Lemma subst_preserves_typing :
   forall e x t u T U,
