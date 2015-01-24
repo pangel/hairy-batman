@@ -146,22 +146,6 @@ Fixpoint shift t (m : nat) (p : nat) :=
     | tapp s T => tapp (shift s m p) T
    end
 .
-Fixpoint substaux t x u prof :=
-  match t with
-    |var n => if (eq_nat_dec x n) then 
-      (
-        shift u prof 0
-      ) else (
-        var n
-      )
-      | abs T s => abs T (substaux s (x+1) u (prof +1))
-      | app s h => app (substaux s x u prof) (substaux s x u prof)
-      | tabs n s => tabs n (substaux s x u prof)
-      | tapp s T => tapp (substaux s x u prof) T
-  end.
-
-Definition subst t u x :=
-  substaux t x u 0.
 
 Fixpoint get_kind e (n:nat) : (option kind) := 
   match e with
@@ -989,30 +973,89 @@ end.
 
 Lemma shift_noop : forall t n, shift t 0 n = t.
 Proof.
-  induction t; simpl; intro n'; [destruct (leb n' x)|..]; auto; congruence.
+  induction t; simpl; intro n'; [destruct (le_dec n' x)|..]; auto; congruence.
+Qed.
+
+
+Fixpoint substaux t x u prof :=
+  match t with
+    |var m => 
+      match le_dec x m with
+      | left prf => (* x <= m *)
+        if le_lt_eq_dec x m prf 
+        then var (m-1) (* x < m *)
+        else shift u prof 0 (* x = m *)
+      | _ => var m (* x > m *)
+      end
+      | abs T s => abs T (substaux s (1+x) u (1+prof))
+      | app s h => app (substaux s x u prof) (substaux s x u prof)
+      | tabs n s => tabs n (substaux s x u prof)
+      | tapp s T => tapp (substaux s x u prof) T
+  end.
+
+Definition subst t u x :=
+  substaux t x u 0.
+
+
+Lemma rem_var_less x y T e : get_typ e y = Some T -> y < x -> get_typ (remove_var e x) y = Some T.
+admit.
+Qed.
+
+Lemma rem_var_more x y T e : get_typ e y = Some T -> y > x -> get_typ (remove_var e x) (y-1) = Some T.
+admit.
+Qed.
+
+Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
+admit.
 Qed.
 
 Lemma subst_preserves_typing :
   forall e x t u T U,
   typing e t T ->
-  typing (remove_var e x) u U -> get_typ e x = Some U ->
-  typing (remove_var e x) (subst t u x) T.
+  typing (remove_var e x) u U -> get_typ_aux e x 0 = Some U ->
+  typing (remove_var e x) (substaux t x u 0) T.
 Proof.
   intros e x t. revert e x.
   induction t as [y | | | | ].
   - intros e x u T U A B C.
     unfold subst.
     simpl.
-    destruct (beq_nat x y) eqn:K.
-    apply beq_nat_true in K. subst.
-    + rewrite (shift_noop u 0).
-      inversion A; subst.
-      replace T with U by congruence.
-      assumption.
-    + 
-      * .
-simpl.
-  admit.
+    destruct (le_dec x y); 
+    [ destruct (le_lt_eq_dec x y _) | ].
+    + inv A.
+      apply remove_var_preserve_wf_env with (x:=x) in H1.
+      apply rem_var_more with (x:=x) in H0. 
+      * eauto. 
+      * omega.
+    + subst. 
+      (*rewrite shift_noop.
+      inversion A.
+      now rewrite C in H0; inversion H0; subst.*)
+      admit.
+    + inv A.
+      apply remove_var_preserve_wf_env with (x:=x) in H1.
+      apply rem_var_less with (x:=x) in H0.
+      * eauto.
+      * omega. 
+  - intros.
+    inv H. simpl. apply rabs.  
+    (* ça coince là *)
+(*    je laisse ça pour mémoire mais ça aide pas : specialize (IHt _ (S x) u _ U k 
+
+
+U:=U0
+e:=(remove_var e x)
+t:=(substaux t (x+1) u 1)
+T:=T
+
+so as a premise we need
+typing (evar T::(remove_var e x)) (substaux t (x+1) u 1) U0
+
+we can get
+typing (remove_var e x) (subst (abs T t) u x) T0
+
+    eauto. rabs simpl.
+    
 Qed.
 
 Inductive kinding e : typ -> kind -> Prop :=
