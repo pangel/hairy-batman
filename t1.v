@@ -909,7 +909,7 @@ Fixpoint substaux t x u prof :=
       | _ => var m (* x > m *)
       end
       | abs T s => abs T (substaux s (1+x) u (1+prof))
-      | app s h => app (substaux s x u prof) (substaux s x u prof)
+      | app s h => app (substaux s x u prof) (substaux h x u prof)
       | tabs n s => tabs n (substaux s x u prof)
       | tapp s T => tapp (substaux s x u prof) T
   end.
@@ -930,14 +930,14 @@ Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
 admit.
 Qed.
 Lemma subst_preserves_typing_test :
-  forall e x t u T U p,
+  forall e x t u T U p m,
   typing e t T ->
-  typing (remove_var e (x+p)) u U -> get_typ_aux e (x+p) 0 = Some U ->
+  typing (remove_var e (x+p)) u (tshift U m 0) -> get_typ_aux e (x+p) m = Some (tshift U m 0) ->
   typing (remove_var e (x+p)) (substaux t (x+p) u p) T.
 Proof.
   intros e x t. revert e x.
   induction t as [y | | | | ].
-  - intros e x u T U p A B C.
+  - intros e x u T U p m A B C.
     unfold subst.
     simpl.
     destruct (le_dec (x+p) y);
@@ -961,7 +961,7 @@ Proof.
     inv H. simpl. apply rabs.
     replace (evar T :: remove_var e (x + p)) with (remove_var (evar T :: e) (S (x+p))).
     * { replace (S (x+p)) with (x + S (p)) by omega.
-        refine (IHt (evar T :: e) x u U0 U (S p)_ _ _).
+        refine (IHt (evar T :: e) x u U0 U (S p) m _ _ _).
         - apply H5.
         - admit.
         - simpl. 
@@ -971,7 +971,20 @@ Proof.
     * simpl.
       reflexivity.
   - intros.
-
+    simpl in *.
+    inv H.
+    refine (@rapp (remove_var e (x + p)) (substaux t1 (x + p) u p) ((substaux t2 (x + p) u p)) T0 T _ _).
+    + refine (IHt1 e x u (arrow T0 T) U p m _ _ _) ; eauto.
+    + refine (IHt2 e x u (T0) U p m _ _ _) ; eauto.
+  - intros.
+    simpl in *.
+    inv H.
+    refine (@rtabs (remove_var e (x + p)) (substaux t (x + p) u p) T0 n _).
+    replace (etvar n :: remove_var e (x + p)) with (remove_var (etvar n :: e) (x + p)).
+    + refine (IHt (etvar n :: e) x u T0 U p (m) _ _ _) ;auto.
+      * simpl. admit.
+      * simpl. admit. (*<========== PROBLEME*)
+    + simpl in *. auto.
 
 Lemma subst_preserves_typing :
   forall e x t u T U,
