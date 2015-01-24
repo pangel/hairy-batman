@@ -1008,6 +1008,49 @@ Qed.
 Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
 admit.
 Qed.
+Lemma subst_preserves_typing_test :
+  forall e x t u T U p,
+  typing e t T ->
+  typing (remove_var e (x+p)) u U -> get_typ_aux e (x+p) 0 = Some U ->
+  typing (remove_var e (x+p)) (substaux t (x+p) u p) T.
+Proof.
+  intros e x t. revert e x.
+  induction t as [y | | | | ].
+  - intros e x u T U p A B C.
+    unfold subst.
+    simpl.
+    destruct (le_dec (x+p) y);
+    [ destruct (le_lt_eq_dec (x+p) y _) | ].
+    + inv A.
+      apply remove_var_preserve_wf_env with (x:=(x+p)) in H1.
+      apply rem_var_more with (x:=(x+p)) in H0. 
+      * eauto. 
+      * omega.
+    + subst. 
+      (*rewrite shift_noop.
+      inversion A.
+      now rewrite C in H0; inversion H0; subst.*)
+      admit.
+    + inv A.
+      apply remove_var_preserve_wf_env with (x:=(x+p)) in H1.
+      apply rem_var_less with (x:=(x+p)) in H0.
+      * eauto.
+      * omega. 
+  - intros.
+    inv H. simpl. apply rabs.
+    replace (evar T :: remove_var e (x + p)) with (remove_var (evar T :: e) (S (x+p))).
+    * { replace (S (x+p)) with (x + S (p)) by omega.
+        refine (IHt (evar T :: e) x u U0 U (S p)_ _ _).
+        - apply H5.
+        - admit.
+        - simpl. 
+          replace (x + S p) with (S (x+p)) by omega.
+          apply H1.
+      }
+    * simpl.
+      reflexivity.
+  - intros.
+
 
 Lemma subst_preserves_typing :
   forall e x t u T U,
@@ -1042,7 +1085,10 @@ Proof.
     (* ça coince là *)
 (*    je laisse ça pour mémoire mais ça aide pas : specialize (IHt _ (S x) u _ U k 
 
-
+typing e t U0 ->
+      typing (remove_var e x) u U ->
+      get_typ_aux e x 0 = Some U ->
+      typing (remove_var e x) (substaux t x u 0) U
 U:=U0
 e:=(remove_var e x)
 t:=(substaux t (x+1) u 1)
