@@ -107,17 +107,17 @@ Fixpoint tshift_in_term t (m p : nat) :=
   end.
 
 Definition Tex := all (0) (arrow (tvar (1)) (tvar(2))).
-
+  
 Fixpoint tsubstaux T (n : nat) V (prof : nat) := 
   match T with
     | tvar m => 
-      (
-        if (eq_nat_dec m n) then (
-          tshift V prof 0
-        ) else (
-          tvar m
-        )
-        )
+      match le_dec n m with
+      | left prf => (* n <= m *)
+        if le_lt_eq_dec n m prf 
+        then tvar (m-1) (* n < m *)
+        else tshift V prof 0 (* n = m *)
+      | _ => tvar m (* n > m *)
+      end
      | arrow A B => arrow (tsubstaux A n V prof) (tsubstaux B n V prof)
      | all k u => all k (tsubstaux u (n+1) V (prof+1))
    end.
@@ -293,7 +293,7 @@ end.
 
 Fixpoint infer_typ e t : option typ := match t with
 | var x => if (wf_env_dec e) then get_typ e x else None
-| abs T t => match infer_typ (evar (tshift T 1 0)::e) t with
+| abs T t => match infer_typ (evar T::e) t with
   | Some U => Some (arrow T U)
   | None => None
   end
@@ -929,15 +929,20 @@ Proof.
     apply (insert_kind_wf_env H1) in H0.
     simpl.
     eauto.
-  - simpl. apply rabs.
-    apply IHtyping.
-(*    shift seems bad. should shift in the term in typing definition?!*)
-  admit.
+  - simpl. eauto.
   - simpl. eauto.
   - simpl. eauto.
   - simpl in *. 
-    pose proof (insert_kind_kinding H1 H). 
-(* on veut
+    pose proof (insert_kind_kinding H1 H).
+    rtapp 
+(* comme
+
+  rtapp
+     : forall e t T' U' p,
+       typing e t (all p T') ->tshift
+       kinding e U' p -> typing e (tapp t U') (tsubst T' U' 0)
+
+on veut
 
   typing 
     e' 
