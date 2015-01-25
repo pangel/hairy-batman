@@ -1146,8 +1146,7 @@ Lemma typing_weakening_var_ind :
 
 (* TODO *)
 
-Lemma kind_well_formed : forall e T x, get_typ = Some T -> wf_env e -> wf_typ e T.
-(*
+Lemma kind_well_formed : forall e T x, get_typ_aux e x 0 = Some T -> wf_env e -> wf_typ e T.
 Proof.
 intros e T x.
 revert e T.
