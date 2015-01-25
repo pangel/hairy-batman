@@ -910,7 +910,7 @@ Fixpoint substaux t x u prof :=
       end
       | abs T s => abs T (substaux s (1+x) u (1+prof))
       | app s h => app (substaux s x u prof) (substaux h x u prof)
-      | tabs n s => tabs n (substaux s x u prof)
+      | tabs n s => tabs n (substaux s x (tshift_in_term u 1 0) prof)
       | tapp s T => tapp (substaux s x u prof) T
   end.
 
@@ -929,123 +929,92 @@ Qed.
 Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
 admit.
 Qed.
-Lemma subst_preserves_typing_test :
-  forall e x t u T U p m q,
-  typing e t T ->
-  typing (remove_var e (x+p)) u U -> get_typ_aux e (x+p) m = Some (tshift U (q) 0) ->
-  typing (remove_var e (x+p)) (substaux t (x+p) u p) T.
+
+Lemma typing_weak1 e t T U : typing e t T -> typing ((evar U)::e) (shift t 1 0) T.
+admit.
+Qed.
+
+Lemma substaux_shift_commut1 t x u : (substaux t (S x) (shift u 1 0) 0 = substaux t (S x) u 1).
+admit.
+Qed.
+
+Lemma get_typ_aux_shift1 e x Tu n : 
+  get_typ_aux e x 0 = Some (tshift Tu n 0) -> get_typ_aux e x 1 = Some (tshift Tu (1+n) 0).
+admit.
+Qed.
+
+Lemma kinding_remove e U p x : kinding e U p -> kinding (remove_var e x) U p.
+admit.
+Qed.
+
+    
+Lemma tshift_in_term_decompose u n : 
+  tshift_in_term u (S n) 0 = tshift_in_term (tshift_in_term u n 0) 1 0.
+admit.
+Qed.
+
+Lemma tshift_decompose T n :
+  tshift T (S n) 0 = tshift (tshift T n 0) 1 0.
+admit.
+Qed.
+
+Lemma tshift_in_term_shift_commut1 u n :
+  shift (tshift_in_term u n 0) 1 0 = tshift_in_term (shift u 1 0) n 0.
+admit.
+Qed.
+
+Lemma tshift_in_term_ident u : u = tshift_in_term u 0 0.
+admit.
+Qed.
+
+Lemma subst_preserves_typing_general :
+  forall e x t u Tt Tu n,
+  typing e t Tt ->
+  typing (remove_var e x) (tshift_in_term u n 0) (tshift Tu n 0) -> get_typ_aux e x 0 = Some (tshift Tu n 0) ->
+  typing (remove_var e x) (substaux t x (tshift_in_term u n 0) 0) Tt.
 Proof.
-  intros e x t. revert e x.
-  induction t as [y | | | | ].
-  - intros e x u T U p m q A B C.
-    unfold subst.
-    simpl.
-    destruct (le_dec (x+p) y);
-    [ destruct (le_lt_eq_dec (x+p) y _) | ].
-    + inv A.
-      apply remove_var_preserve_wf_env with (x:=(x+p)) in H1.
-      apply rem_var_more with (x:=(x+p)) in H0. 
-      * eauto. 
-      * omega.
-    + subst. 
-      (*rewrite shift_noop.
-      inversion A.
-      now rewrite C in H0; inversion H0; subst.*)
-      inversion A.
+  intros. revert H1 H0. revert x u Tu n. induction H; intros. 
+  - simpl.    destruct (le_dec x0 x); 
+    [ destruct (le_lt_eq_dec x0 x _) | ]. 
+    + constructor.     
+      * now apply rem_var_more.
+      * now apply remove_var_preserve_wf_env.
+    + rewrite shift_noop.
       subst.
-      unfold get_typ in H0.
-      admit.
-    + inv A.
-      apply remove_var_preserve_wf_env with (x:=(x+p)) in H1.
-      apply rem_var_less with (x:=(x+p)) in H0.
-      * eauto.
-      * omega. 
-  - intros.
-    inv H. simpl. apply rabs.
-    replace (evar T :: remove_var e (x + p)) with (remove_var (evar T :: e) (S (x+p))).
-    * { replace (S (x+p)) with (x + S (p)) by omega.
-        refine (IHt (evar T :: e) x u U0 U (S p) m q _ _ _).
-        - apply H5.
-        - admit.
-        - simpl. 
-          replace (x + S p) with (S (x+p)) by omega.
-          apply H1.
-      }
-    * simpl.
-      reflexivity.
-  - intros.
-    simpl in *.
-    inv H.
-    refine (@rapp (remove_var e (x + p)) (substaux t1 (x + p) u p) ((substaux t2 (x + p) u p)) T0 T _ _).
-    + refine (IHt1 e x u (arrow T0 T) U p m q _ _ _) ; eauto.
-    + refine (IHt2 e x u (T0) U p m q _ _ _) ; eauto.
-  - intros.
-    simpl in *.
-    inv H.
-    refine (@rtabs (remove_var e (x + p)) (substaux t (x + p) u p) T0 n _).
-    replace (etvar n :: remove_var e (x + p)) with (remove_var (etvar n :: e) (x + p)).
-    + refine (IHt (etvar n :: e) x u T0 U p (m) (1+ q) _ _ _) ;auto.
-      * simpl. admit. (*<========== OK*)
-      * simpl. admit. (*<========== OK*)
-    + simpl in *. auto.
-  - intros.
-    simpl in *.
-    inv H.
-    refine (@rtapp (remove_var e (x + p)) (substaux t (x + p) u p) T1 T p0 _ _).
-    + refine (IHt (e) x u (all p0 T1) U p (m) q _ _ _) ;auto.
-    + admit. (* <======= OK*)
+      unfold get_typ in H. rewrite H in H1. inv H1.
+      auto.
+    + constructor.
+      * apply rem_var_less; [assumption | omega].
+      * now apply remove_var_preserve_wf_env.
+  - simpl.
+    apply typing_weak1 with (U:=T) in H0.
+    rewrite <- substaux_shift_commut1.
+    specialize (IHtyping (S x) (shift u 1 0) Tu n).
+    rewrite tshift_in_term_shift_commut1 in *. eauto.
+  - simpl; eauto.
+  - simpl in *.
+    constructor.
+    apply get_typ_aux_shift1 in H1.
+    specialize (IHtyping x u Tu (S n)). 
+    rewrite tshift_in_term_decompose in IHtyping.
+    apply IHtyping; auto. 
+    rewrite tshift_decompose.
+    eapply insert_kind_typing; eauto.
+  - simpl in *.
+    apply kinding_remove with (x:=x) in H0.
+    apply rtapp with (p:=p); eauto.
 Qed.
 (*
 Lemma subst_preserves_typing :
   forall e x t u T U,
   typing e t T ->
-  typing (remove_var e x) u U -> get_typ_aux e x 0 = Some U ->
-  typing (remove_var e x) (substaux t x u 0) T.
+  typing (remove_var e x) u U -> get_typ e x = Some U ->
+  typing (remove_var e x) (subst t u x) T.
 Proof.
-  intros e x t. revert e x.
-  induction t as [y | | | | ].
-  - intros e x u T U A B C.
-    unfold subst.
-    simpl.
-    destruct (le_dec x y); 
-    [ destruct (le_lt_eq_dec x y _) | ].
-    + inv A.
-      apply remove_var_preserve_wf_env with (x:=x) in H1.
-      apply rem_var_more with (x:=x) in H0. 
-      * eauto. 
-      * omega.
-    + subst. 
-      (*rewrite shift_noop.
-      inversion A.
-      now rewrite C in H0; inversion H0; subst.*)
-      admit.
-    + inv A.
-      apply remove_var_preserve_wf_env with (x:=x) in H1.
-      apply rem_var_less with (x:=x) in H0.
-      * eauto.
-      * omega. 
-  - intros.
-    inv H. simpl. apply rabs.  
-    (* ça coince là *)
-  je laisse ça pour mémoire mais ça aide pas : specialize (IHt _ (S x) u _ U k 
-
-typing e t U0 ->
-      typing (remove_var e x) u U ->
-      get_typ_aux e x 0 = Some U ->
-      typing (remove_var e x) (substaux t x u 0) U
-U:=U0
-e:=(remove_var e x)
-t:=(substaux t (x+1) u 1)
-T:=T
-
-so as a premise we need
-typing (evar T::(remove_var e x)) (substaux t (x+1) u 1) U0
-
-we can get
-typing (remove_var e x) (subst (abs T t) u x) T0
-
-    eauto. rabs simpl.
-    
+intros.
+rewrite (tshift_in_term_ident u) in *.
+rewrite <- (tshift_ident U 0) in *.
+now apply subst_preserves_typing_general with (Tu:=U) (n:=0).
 Qed.
 
 Inductive kinding e : typ -> kind -> Prop :=
