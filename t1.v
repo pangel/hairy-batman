@@ -75,20 +75,6 @@ Definition shift_var n floor inc :=
   if (le_dec floor n) then inc+n else n.
 Arguments shift_var / _ _ _.
 
-Fixpoint tshiftone T p := 
-  match T with
-    | tvar n => tvar (shift_var n p 1)
-    | arrow A B => arrow (tshiftone A p) (tshiftone B p)
-    | all k u => all (k) (tshiftone u (1+p))
-  end
-.
-
-Fixpoint tshiftrec T m p := 
-  match m with
-    | S n => tshiftone (tshiftrec (T) n p) (p+n)
-    | 0 => T
-  end
-. 
 Fixpoint tshift T (m : nat) (p : nat) := 
   match T with
     | tvar n => tvar (shift_var n p m)
@@ -108,23 +94,19 @@ Fixpoint tshift_in_term t (m p : nat) :=
 
 Definition Tex := all (0) (arrow (tvar (1)) (tvar(2))).
   
-Fixpoint tsubstaux T (n : nat) V (prof : nat) := 
+Fixpoint tsubst T V (n : nat) := 
   match T with
     | tvar m => 
       match le_dec n m with
       | left prf => (* n <= m *)
         if le_lt_eq_dec n m prf 
         then tvar (m-1) (* n < m *)
-        else tshift V prof 0 (* n = m *)
+        else V (* n = m *)
       | _ => tvar m (* n > m *)
       end
-     | arrow A B => arrow (tsubstaux A n V prof) (tsubstaux B n V prof)
-     | all k u => all k (tsubstaux u (n+1) V (prof+1))
+     | arrow A B => arrow (tsubst A V n) (tsubst B V n)
+     | all k u => all k (tsubst u (tshift V 1 0) (n+1))
    end.
-
-Definition tsubst T U X :=
-tsubstaux T X U 0
-.
 
 (*Compute tsubst Tex (all (0) (tvar 1)) 1.
 Compute shift (all (0) (tvar 0)) 1 0.*)
@@ -146,6 +128,22 @@ Fixpoint shift t (m : nat) (p : nat) :=
     | tapp s T => tapp (shift s m p) T
    end
 .
+
+Fixpoint subst t u x :=
+  match t with
+    |var m => 
+      match le_dec x m with
+      | left prf => (* x <= m *)
+        if le_lt_eq_dec x m prf 
+        then var (m-1) (* x < m *)
+        else u (* x = m *)
+      | _ => var m (* x > m *)
+      end
+      | abs T s => abs T (subst s (shift u 1 0) (1+x))
+      | app s h => app (subst s u x) (subst h u x)
+      | tabs n s => tabs n (subst s (tshift_in_term u 1 0) x)
+      | tapp s T => tapp (subst s u x) T
+  end.
 
 Fixpoint get_kind e (n:nat) : (option kind) := 
   match e with
@@ -809,33 +807,16 @@ Ltac destruct_match :=
   | H:context[match ?a with _ => _ end] |- _ => destruct a; simpl in *; try destruct_match
   end.
 
-Lemma tsubstaux_tshift_swap : 
-  forall T U X (m k:nat), m <= X ->
-  tshift (tsubstaux T m U k) 1 X = tsubstaux (tshift T 1 (S X)) m (tshift U 1 (X-k)) k.
+Lemma tsubst_tshift_swapN: 
+  forall T U X n, n <= X -> (tshift (tsubst T U n) 1 X) = tsubst (tshift T 1 (S X)) (tshift U 1 X) n.
 Proof.
 induction T; intros; simpl in *.
-- destruct_match; try omega.
-  + f_equal; omega.
-  + f_equal; omega.
-  + replace (X - k) with (X - k + 0) by omega.
-    replace X with (X + 0) at 1 by omega. 
-    apply tshift_commut with (a:=k) (c:=1) (d:=X) (p:=0).
-  + auto.
+- destruct_match; try omega; try (f_equal; omega); auto.
 - rewrite IHT1, IHT2; auto.
-- rewrite IHT; try omega.
-  do 3 f_equal. 
-  omega.
+- rewrite IHT with (X:=S X); try omega.
+  do 2 f_equal.
+  now rewrite <- tshift_swap1.
 Qed.
-
-Lemma tsubst_tshift_swap: 
-  forall T U X, (tshift (tsubst T U 0) 1 X) = tsubst (tshift T 1 (S X)) (tshift U 1 X) 0.
-Proof.
-intros.
-replace X with (X-0) at 3 by omega.
-apply tsubstaux_tshift_swap. 
-omega.
-Qed.
-
 
 Lemma insert_kind_typing X e e' t T : 
   insert_kind X e e' -> typing e t T -> typing e' (tshift_in_term t 1 X) (tshift T 1 X).
@@ -843,7 +824,11 @@ Proof.
   intros.
   revert H. revert X e'.
   induction H0; intros.
-  - simpl in *. pose proof (tshift_shape H) as (k & T'' & A); subst.
+  - simpl in *. 
+(* with preshifted env : 
+Lemma get_typ_aux e x 0 = Some T -> insert_kind X e e' -> get_typ_aux e' x 0 = tshift T 1 X
+*)
+    pose proof (tshift_shape H) as (k & T'' & A); subst.
     pose proof (get_type_insert_some H1 H).
     rewrite tshift_swapN in H2.
     apply (insert_kind_wf_env H1) in H0.
@@ -855,8 +840,9 @@ Proof.
   - simpl in *. 
     pose proof (insert_kind_kinding H1 H).
     specialize (IHtyping X e' H1).
-    rewrite tsubst_tshift_swap. 
-    eauto.
+    rewrite tsubst_tshift_swapN.
+    + eauto.
+    + omega.
 Qed.
 
 
@@ -897,27 +883,6 @@ Proof.
   induction t; simpl; intro n'; [destruct (le_dec n' x)|..]; auto; congruence.
 Qed.
 
-
-Fixpoint substaux t x u prof :=
-  match t with
-    |var m => 
-      match le_dec x m with
-      | left prf => (* x <= m *)
-        if le_lt_eq_dec x m prf 
-        then var (m-1) (* x < m *)
-        else shift u prof 0 (* x = m *)
-      | _ => var m (* x > m *)
-      end
-      | abs T s => abs T (substaux s (1+x) u (1+prof))
-      | app s h => app (substaux s x u prof) (substaux h x u prof)
-      | tabs n s => tabs n (substaux s x (tshift_in_term u 1 0) prof)
-      | tapp s T => tapp (substaux s x u prof) T
-  end.
-
-Definition subst t u x :=
-  substaux t x u 0.
-
-
 Lemma rem_var_less x y T e : get_typ e y = Some T -> y < x -> get_typ (remove_var e x) y = Some T.
 admit.
 Qed.
@@ -934,10 +899,6 @@ Lemma typing_weak1 e t T U : typing e t T -> typing ((evar U)::e) (shift t 1 0) 
 admit.
 Qed.
 
-Lemma substaux_shift_commut1 t x u : (substaux t (S x) (shift u 1 0) 0 = substaux t (S x) u 1).
-admit.
-Qed.
-
 Lemma get_typ_aux_shift1 e x Tu n : 
   get_typ_aux e x 0 = Some (tshift Tu n 0) -> get_typ_aux e x 1 = Some (tshift Tu (1+n) 0).
 admit.
@@ -947,76 +908,42 @@ Lemma kinding_remove e U p x : kinding e U p -> kinding (remove_var e x) U p.
 admit.
 Qed.
 
-    
-Lemma tshift_in_term_decompose u n : 
-  tshift_in_term u (S n) 0 = tshift_in_term (tshift_in_term u n 0) 1 0.
-admit.
-Qed.
-
-Lemma tshift_decompose T n :
-  tshift T (S n) 0 = tshift (tshift T n 0) 1 0.
-admit.
-Qed.
-
-Lemma tshift_in_term_shift_commut1 u n :
-  shift (tshift_in_term u n 0) 1 0 = tshift_in_term (shift u 1 0) n 0.
-admit.
-Qed.
-
-Lemma tshift_in_term_ident u : u = tshift_in_term u 0 0.
-admit.
-Qed.
-
-Lemma subst_preserves_typing_general :
-  forall e x t u Tt Tu n,
+Lemma subst_preserves_typing :
+  forall e x t u Tt Tu,
   typing e t Tt ->
-  typing (remove_var e x) (tshift_in_term u n 0) (tshift Tu n 0) -> get_typ_aux e x 0 = Some (tshift Tu n 0) ->
-  typing (remove_var e x) (substaux t x (tshift_in_term u n 0) 0) Tt.
+  typing (remove_var e x) u Tu -> get_typ e x = Some Tu ->
+  typing (remove_var e x) (subst t u x) Tt.
 Proof.
-  intros. revert H1 H0. revert x u Tu n. induction H; intros. 
-  - simpl.    destruct (le_dec x0 x); 
+  intros. revert H1 H0. revert x u Tu. induction H; intros. 
+  - simpl. destruct (le_dec x0 x); 
     [ destruct (le_lt_eq_dec x0 x _) | ]. 
     + constructor.     
       * now apply rem_var_more.
       * now apply remove_var_preserve_wf_env.
-    + rewrite shift_noop.
-      subst.
-      unfold get_typ in H. rewrite H in H1. inv H1.
-      auto.
+    + subst.
+      rewrite H in H1. 
+      now inv H1.
     + constructor.
       * apply rem_var_less; [assumption | omega].
       * now apply remove_var_preserve_wf_env.
   - simpl.
     apply typing_weak1 with (U:=T) in H0.
-    rewrite <- substaux_shift_commut1.
-    specialize (IHtyping (S x) (shift u 1 0) Tu n).
-    rewrite tshift_in_term_shift_commut1 in *. eauto.
+    specialize (IHtyping (S x) (shift u 1 0) Tu).
+    eauto.
   - simpl; eauto.
   - simpl in *.
     constructor.
-    apply get_typ_aux_shift1 in H1.
-    specialize (IHtyping x u Tu (S n)). 
-    rewrite tshift_in_term_decompose in IHtyping.
+    specialize (IHtyping x (tshift_in_term u 1 0) (tshift Tu 1 0)). 
     apply IHtyping; auto. 
-    rewrite tshift_decompose.
-    eapply insert_kind_typing; eauto.
+    + setoid_rewrite <- tshift_ident with (p:=0) in H1.
+      now apply get_typ_aux_shift1 in H1.
+    + eapply insert_kind_typing; eauto.    
   - simpl in *.
     apply kinding_remove with (x:=x) in H0.
     apply rtapp with (p:=p); eauto.
 Qed.
-(*
-Lemma subst_preserves_typing :
-  forall e x t u T U,
-  typing e t T ->
-  typing (remove_var e x) u U -> get_typ e x = Some U ->
-  typing (remove_var e x) (subst t u x) T.
-Proof.
-intros.
-rewrite (tshift_in_term_ident u) in *.
-rewrite <- (tshift_ident U 0) in *.
-now apply subst_preserves_typing_general with (Tu:=U) (n:=0).
-Qed.
 
+(*
 Inductive kinding e : typ -> kind -> Prop :=
 | kvar X p q : get_kind e X = Some p -> p <= q -> wf_env e -> kinding e (tvar X) q
 | karrow T U p q : kinding e T p -> kinding e U q -> kinding e (arrow T U) (max p q)
