@@ -995,7 +995,7 @@ Proof.
     + refine (IHt (e) x u (all p0 T1) U p (m) q _ _ _) ;auto.
     + admit. (* <======= OK*)
 Qed.
-
+(*
 Lemma subst_preserves_typing :
   forall e x t u T U,
   typing e t T ->
@@ -1027,7 +1027,7 @@ Proof.
   - intros.
     inv H. simpl. apply rabs.  
     (* ça coince là *)
-(*    je laisse ça pour mémoire mais ça aide pas : specialize (IHt _ (S x) u _ U k 
+  je laisse ça pour mémoire mais ça aide pas : specialize (IHt _ (S x) u _ U k 
 
 typing e t U0 ->
       typing (remove_var e x) u U ->
@@ -1060,16 +1060,120 @@ Inductive typing e : term -> typ -> Prop :=
 | rtabs t T p : typing ((etvar p)::e) t T -> typing e (tabs p t) (all p T)
 | rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (tapp t U) (tsubst T U 1).
 
-
+*)
 (* TODO *)
 Lemma typing_weakening_var_ind :
   forall e x t T,
   wf_env e -> typing (remove_var e x) t T -> typing e (shift t 1 x) T.
+  
+(*
+  intros.
+  revert H0.
+  revert H.
+  revert e x t.
+  induction T.
+  - intros.
+    destruct t.
+    + simpl in *.
+      refine (@rvar e (if le_dec x0 x1 then S x1 else x1) (tvar x) _ _) ; eauto.
+      * { destruct (le_dec x0 x1).
+          - admit.
+          - admit.
+        }
+    + inversion H0.
+    + inversion H0.
+      simpl.
+      subst.
+      refine (@rapp e (shift t1 1 x0) (shift t2 1 x0) T (tvar x) _ _).
+      * admit.
+      * admit.
+   + inversion H0.
+   + inversion H0.
+     simpl.
+     subst.
+     refine (@rtapp e (shift t 1 x0) T0 T p _ _).
+     * admit.
+     * admit.
+ - intros.
+   destruct t.
+   + inversion H0.
+     simpl.
+     refine (@rvar e (if le_dec x x0 then S x0 else x0) (arrow T1 T2) _ _);auto.
+     subst.
+     destruct (le_dec x x0).
+     * admit.
+     * admit.
+   + simpl.
+     inversion H0.
+     subst.
+     refine (@rabs e (shift t 1 (x + 1)) T1 T2 _ ).
+     simpl in *.
+     admit.
+   + simpl.
+     inversion H0.
+     subst.
+     refine (@rapp e (shift t1 1 x) (shift t2 1 x) T (arrow T1 T2) _ _).
+     * refine (IHT1 e x t1 _ _).
+*)   
+         
+(*
+  intros e x t. revert e x.
+  induction t.
+  - intros.
+    simpl.
+    inversion H0.
+    refine (@rvar e (if le_dec x0 x then S x else x) T _ _) ; eauto.
+    destruct (le_dec x0 x).
+    + admit.
+    + admit.
+  - intros.
+    simpl.
+    destruct T0.
+    + inversion H0.
+    + inversion H0. 
+      refine (@rabs e (shift t 1 (x + 1)) T0_1 T0_2 _ ).
+      simpl in *.
+      subst.
+      refine (IHt (evar T0_1 :: e) (x+1) T0_2 _ _).
+      * { simpl.
+          split ; auto.
+          destruct T0_1.
+          - simpl in *.
+            intros.
+            
+    + inversion H0.
+ *)   
 
 (* TODO *)
-Lemma regularity e t T : exists p, kinding e T p.
+
+Lemma kind_well_formed : forall e T x, get_typ = Some T -> wf_env e -> wf_typ e T.
+(*
 Proof.
-  admit.
+intros e T x.
+revert e T.
+induction x.
+- intros.
+  destruct e.
+  + inversion H.
+  + destruct e.
+    * { simpl in *.
+        inversion H.
+        replace (tshift T0 0 0) with (T0).
+        - apply H0.
+        - symmetry. apply tshift_ident.
+      }
+    * simpl in *.
+      
+- intros.
+  destruct a.
+  + refine (IHe T ).
+*)
+Lemma regularity e t T : typing e t T -> exists p, kinding e T p.
+Proof.
+  intros.
+  induction H.
+  - admit.
+  - 
 Qed.
 
 (* TODO *)
