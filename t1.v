@@ -105,7 +105,7 @@ Fixpoint tsubst T V (n : nat) :=
       | _ => tvar m (* n > m *)
       end
      | arrow A B => arrow (tsubst A V n) (tsubst B V n)
-     | all k u => all k (tsubst u (tshift V 1 0) (n+1))
+     | all k u => all k (tsubst u (tshift V 1 0) (1+n))
    end.
 
 (*Compute tsubst Tex (all (0) (tvar 1)) 1.
@@ -115,14 +115,14 @@ Fixpoint subst_type t T X :=
     | var x => var x
     | abs U s => abs (tsubst U T X) (subst_type s T X)
     | app s u => app (subst_type s T X) (subst_type u T X) 
-    | tabs n t => tabs n (subst_type t T (X+1))
+    | tabs n t => tabs n (subst_type t T (1+X))
     | tapp s U => tapp (subst_type s T X) (tsubst U T X)
   end.
 
 Fixpoint shift t (m : nat) (p : nat) := 
   match t with
     | var n => var (shift_var n p m)
-    | abs T s =>  abs T (shift s m (p+1))
+    | abs T s =>  abs T (shift s m (1+p))
     | app s u => app (shift s m p) (shift u m p) 
     | tabs n s => tabs n (shift s m p) 
     | tapp s T => tapp (shift s m p) T
@@ -192,14 +192,14 @@ Qed.
 Fixpoint wf_env e : Prop :=
 match e with
 | nil => True
-| (evar T)::e' => wf_typ e T /\ wf_env e'
+| (evar T)::e' => wf_typ e' T /\ wf_env e'
 | (etvar p)::e' => wf_env e'
 end.
 
 Lemma wf_env_dec e : { wf_env e } + { wf_env e -> False }.
 Proof. 
   induction e as [|[U|p]]; simpl; auto.
-  destruct (wf_typ_dec (evar U :: e) U); tauto.
+  destruct (wf_typ_dec e U); tauto.
 Qed.
 
 (* Ou alors avec un Fixpoint ? On verra ce qui est plus pratique *)
@@ -399,15 +399,10 @@ Qed.
 Lemma insert_kind_wf_env X e e' : 
   insert_kind X e e' -> wf_env e -> wf_env e'.
 Proof.
-  induction 1.
-  - auto.
-  - simpl.
-    intros [D E].
-    split.
-    + apply iskip with (T:=T) in H.
-      now apply insert_kind_wf_typ with (n:=n) (e:=(evar T::e)).
-    + auto.
-  - auto.
+  induction 1; simpl; auto.
+  intros [D E].
+  split; auto.
+  now apply insert_kind_wf_typ with (n:=n) (e:=e).
 Qed.
 
 Lemma insert_kind_kinding X e e' T p: 
@@ -943,104 +938,175 @@ Proof.
     apply rtapp with (p:=p); eauto.
 Qed.
 
-(*
-Inductive kinding e : typ -> kind -> Prop :=
-| kvar X p q : get_kind e X = Some p -> p <= q -> wf_env e -> kinding e (tvar X) q
-| karrow T U p q : kinding e T p -> kinding e U q -> kinding e (arrow T U) (max p q)
-| kall T p q : kinding ((etvar q)::e) T p -> kinding e (all q T) (1 + (max p q)).
+Lemma rem_var_more_conv e x y T : get_typ (remove_var e x) y = Some T -> x <= y -> get_typ e (S y) = Some T.
+admit.
+Qed.
 
-Inductive typing e : term -> typ -> Prop :=
-| rvar x T : get_typ e x = Some T -> wf_env e -> typing e (var x) T
-| rabs t T U : typing ((evar T)::e) t U -> typing e (abs T t) (arrow T U)
-| rapp t u T U : typing e t (arrow T U) -> typing e u T -> typing e (app t u) U
-| rtabs t T p : typing ((etvar p)::e) t T -> typing e (tabs p t) (all p T)
-| rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (tapp t U) (tsubst T U 1).
+Lemma rem_var_less_conv e x y T : get_typ (remove_var e x) y = Some T -> x > y -> get_typ e y = Some T.
+admit.
+Qed.
 
-*)
-(* TODO *)
+Lemma kinding_remove_impl e x U p : kinding (remove_var e x) U p -> kinding e U p.
+admit.
+Qed.
+
+Lemma get_kind_remove_var_noop e : forall x y, get_kind e y = get_kind (remove_var e x) y.
+Proof.
+  induction e as [|[|]]; intros; simpl in *; auto; [destruct x | destruct y]; eauto.
+Qed.
+
+Lemma typing_impl_wf_env e t T : typing e t T -> wf_env e.
+Proof.
+  induction 1; simpl in *; auto; tauto.
+Qed.
+
+Lemma remove_var_preserves_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
+Proof.
+  induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
+  contradict A.
+  now rewrite <- get_kind_remove_var_noop.
+Qed.
+
 Lemma typing_weakening_var_ind :
   forall e x t T,
   wf_env e -> typing (remove_var e x) t T -> typing e (shift t 1 x) T.
-  
-(*
-  intros.
-  revert H0.
-  revert H.
-  revert e x t.
-  induction T.
-  - intros.
-    destruct t.
-    + simpl in *.
-      refine (@rvar e (if le_dec x0 x1 then S x1 else x1) (tvar x) _ _) ; eauto.
-      * { destruct (le_dec x0 x1).
-          - admit.
-          - admit.
-        }
-    + inversion H0.
-    + inversion H0.
-      simpl.
-      subst.
-      refine (@rapp e (shift t1 1 x0) (shift t2 1 x0) T (tvar x) _ _).
-      * admit.
-      * admit.
-   + inversion H0.
-   + inversion H0.
-     simpl.
-     subst.
-     refine (@rtapp e (shift t 1 x0) T0 T p _ _).
-     * admit.
-     * admit.
- - intros.
-   destruct t.
-   + inversion H0.
-     simpl.
-     refine (@rvar e (if le_dec x x0 then S x0 else x0) (arrow T1 T2) _ _);auto.
-     subst.
-     destruct (le_dec x x0).
-     * admit.
-     * admit.
-   + simpl.
-     inversion H0.
-     subst.
-     refine (@rabs e (shift t 1 (x + 1)) T1 T2 _ ).
-     simpl in *.
-     admit.
-   + simpl.
-     inversion H0.
-     subst.
-     refine (@rapp e (shift t1 1 x) (shift t2 1 x) T (arrow T1 T2) _ _).
-     * refine (IHT1 e x t1 _ _).
-*)   
-         
-(*
-  intros e x t. revert e x.
-  induction t.
-  - intros.
-    simpl.
-    inversion H0.
-    refine (@rvar e (if le_dec x0 x then S x else x) T _ _) ; eauto.
-    destruct (le_dec x0 x).
-    + admit.
-    + admit.
-  - intros.
-    simpl.
-    destruct T0.
-    + inversion H0.
-    + inversion H0. 
-      refine (@rabs e (shift t 1 (x + 1)) T0_1 T0_2 _ ).
-      simpl in *.
-      subst.
-      refine (IHt (evar T0_1 :: e) (x+1) T0_2 _ _).
-      * { simpl.
-          split ; auto.
-          destruct T0_1.
-          - simpl in *.
-            intros.
-            
-    + inversion H0.
- *)   
+Proof.
+  intros e x t T A B. revert A. dependent induction B; intros; simpl in *; eauto.
+  - constructor; auto.
+    destruct (le_dec x x0).
+    + apply rem_var_more_conv with (x:=x); auto.
+    + apply rem_var_less_conv with (x:=x); auto; omega.
+  - constructor.
+    specialize (IHB (evar T::e) (S x)). simpl in *.
+    apply IHB.
+    + auto.
+    + split; auto.
+      apply typing_impl_wf_env in B as [? ?]. 
+      now apply remove_var_preserves_wf_typ with (x:=x).
+  - apply kinding_remove_impl in H.
+    eapply rtapp with (p:=p); auto. 
+Qed.
 
-(* TODO *)
+Lemma wf_typ_impl_kinding e T : wf_typ e T -> exists p, kinding e T p.
+admit.
+Qed.
+   
+Lemma kinding_remove_impl1 e U p T : kinding e U p -> kinding (evar T::e) U p.
+Proof.
+  replace e with (remove_var (evar T::e) 0) at 1 by auto.
+  apply kinding_remove_impl.
+Qed.
+
+
+Lemma get_typ_aux_unshift1 e x T m: 
+  get_typ_aux e x (S m) = Some (tshift T m 0) ->
+  exists T', get_typ_aux e x m = Some (tshift T' m 0) /\ T = (tshift T' 1 0).
+Proof.
+admit.
+Qed.
+
+Lemma tshift_remN:
+  forall T U m,
+  tshift T m 0 = tshift U m 0 -> T = U.
+Proof.
+admit.
+Qed.
+
+Lemma get_typ_kinding_general e : 
+  forall x T m, 
+  get_typ_aux e x m = Some (tshift T m 0) -> 
+  wf_env e -> 
+  exists p, kinding e T p.
+Proof.
+induction e as [|[U|q]]; intros x T m A B.
+- discriminate.
+- destruct x.
+  + destruct B.
+    inv A. 
+    apply tshift_remN in H2. 
+    subst. 
+    apply wf_typ_impl_kinding in H as [? ?].
+    eauto using kinding_remove_impl1.
+  + simpl in *.
+    destruct B as [B1 B2].
+    destruct (IHe _ _ _ A B2) as [k C]. 
+    exists k.
+    now apply kinding_remove_impl1.
+- simpl in *.
+  apply get_typ_aux_unshift1 in A as [T' [C D]].
+  pose proof (IHe _ _ _ C B) as [p E].
+  subst.
+  exists p.
+  now apply insert_kind_kinding with (e:=e).
+Qed.
+
+Lemma insert_shiftl e e' Y X p : 
+  insert_kind Y e e' -> Y < (S X) -> get_kind e' (S X) = Some p -> get_kind e X = Some p.
+admit.
+Qed.
+
+Lemma insert_shiftr e e' Y X p :
+  insert_kind Y e e' -> ~ Y <= X -> get_kind e' X = Some p -> get_kind e X = Some p.
+admit.
+Qed.
+
+Lemma insert_kind_wf_env_conv X e e' :
+  insert_kind X e e' -> wf_env e' -> wf_env e.
+admit.
+Qed.
+
+Lemma tsubst_preserves_kinding e e' X U T kU kT :
+insert_kind X e e' ->
+get_kind e' X = Some kU ->
+kinding e' T kT ->
+kinding e U kU ->
+kinding e (tsubst T U X) kT.
+Proof.
+intros A B C. revert A B. revert e X U kU. dependent induction C ; intros e0 X0 U' kU A B C'.
+- simpl.
+  assert (wf_env e0) by eauto using insert_kind_wf_env_conv. 
+  destruct (le_dec X0 X).
+  + destruct (le_lt_eq_dec _ _ _).
+    * destruct X; try omega.
+      replace (S X - 1) with X by omega.
+      assert (get_kind e0 X = Some p) by eauto using insert_shiftl.
+      eauto.
+    * subst. 
+      assert (p = kU) by congruence. 
+      subst.
+      eauto.
+  + assert (get_kind e0 X = Some p) by eauto using insert_shiftr.
+    eauto.
+- simpl in *. eauto.
+- simpl in *.
+  constructor.
+  apply (IHC (etvar q::e0) (S X0) (tshift U' 1 0) kU (icons _ A) B (insert_kind_kinding (inil e0 q) C')).
+Qed.
+
+Lemma regularity e t T : typing e t T -> exists p, kinding e T p.
+Proof.
+  intros.
+  induction H.
+  - eapply get_typ_kinding_general with (m:=0).
+    + rewrite tshift_ident. eauto.
+    + assumption.
+  - destruct IHtyping as [p A].
+    apply typing_impl_wf_env in H.
+    destruct H.
+    apply wf_typ_impl_kinding in H as [q H].
+    apply kinding_remove with (x:=0) in A. 
+    eauto.
+  - destruct IHtyping1 as [p A].
+    inv A.
+    eauto.
+  - destruct IHtyping as [q A].
+    eauto.
+  - destruct IHtyping as [q A].
+    inv A.
+    exists p0.
+    eapply tsubst_preserves_kinding with (e':=etvar p::e) (kU:=p); eauto.
+Qed.
+
 
 Lemma kind_well_formed : forall e T x, get_typ_aux e x 0 = Some T -> wf_env e -> wf_typ e T.
 Proof.
