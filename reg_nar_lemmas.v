@@ -8,38 +8,40 @@ Implicit Types
 (t s u v : term)
 (e f : env).
 
+
+Hint Extern 1 => 
+match goal with
+| |- context [le_dec ?a ?b] => destruct (le_dec a b); try omega
+| |- context [eq_nat_dec ?a ?b] => destruct (eq_nat_dec a b); try omega
+| H : context [le_dec ?a ?b] |- _ => destruct (le_dec a b); try omega
+end.
+
+
+Ltac destruct_match :=
+  match goal with
+  | |- context[match ?a with _ => _ end] => destruct a; simpl in *; try destruct_match
+  | H:context[match ?a with _ => _ end] |- _ => destruct a; simpl in *; try destruct_match
+  end.
+
+
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
 | iskip n T e e' : insert_kind n e e' -> insert_kind n ((evar T)::e) ((evar (tshift T 1 n))::e')
 | icons n p e e' : insert_kind n e e' -> insert_kind (S n) ((etvar p)::e) ((etvar p)::e').
 Hint Constructors insert_kind.
 
-Lemma get_kind_insert_some e e' X Y p :
-  insert_kind X e e' -> get_kind e Y = Some p -> get_kind e' (shift_var Y 1 X) = Some p.
-Proof.
-  intros D E.
-  revert E. revert Y.
-  induction D as [e p'| | ]; intros Y E.
-  - simpl. auto.
-  - simpl in *.
-    auto.
-  - simpl in *.
-    destruct Y.
-    + destruct (le_dec (S n) 0); [omega|auto].
-    + specialize (IHD Y E).
-      destruct (le_dec n Y);
-      destruct (le_dec (S n) (S Y));
-      auto; omega.
-Qed.
+(** Relation entre [insert_kind] et [get_kind] : l'insertion en position [X] maintient
+    le résultat à de [get_kind _ Y] à [shift_var Y 1 X] près *)
 
-Lemma get_kind_insert_none e e' X Y : 
-  insert_kind X e e' -> get_kind e' (shift_var Y 1 X) = None -> get_kind e Y = None.
+Lemma get_kind_insert_shift e e' X Y :
+  insert_kind X e e' -> get_kind e Y = get_kind e' (shift_var Y 1 X).
 Proof.
-  intros A B.
-  destruct (get_kind e Y) as [k|] eqn:K.
-  - apply (get_kind_insert_some A) in K.
-    congruence.
-  - reflexivity.
+  intros D. revert Y.
+  induction D as [e p'| | ]; simpl; intros Y; eauto.
+  destruct Y; eauto.
+  simpl in *.
+  specialize (IHD Y).
+  eauto.
 Qed.
 
 Lemma insert_kind_wf_typ n e e' T : insert_kind n e e' -> wf_typ e T -> wf_typ e' (tshift T 1 n).
@@ -49,7 +51,7 @@ Proof.
   intros n' e e' A B;
   simpl in *.
   - contradict B.
-    apply (get_kind_insert_none A B).
+    erewrite get_kind_insert_shift; eauto.
   - destruct B as [B C]. 
     split; eauto.
   - refine (IHT (1+n') (etvar n::e) _ _ _).
@@ -73,7 +75,7 @@ Proof.
   induction T; intros p X e e' D E.
   - inversion E. subst.
     refine (kvar _ H1 _).
-    + eapply get_kind_insert_some; eauto. 
+    + erewrite <- get_kind_insert_shift; eauto.
     + eapply insert_kind_wf_env; eauto. 
   - inversion E. subst.
     simpl.
@@ -111,13 +113,6 @@ Proof.
     + symmetry.
       apply (IHT (S p)).
 Qed.
-
-Hint Extern 1 => 
-match goal with
-| |- context [le_dec ?a ?b] => destruct (le_dec a b); try omega
-| |- context [eq_nat_dec ?a ?b] => destruct (eq_nat_dec a b); try omega
-| H : context [le_dec ?a ?b] |- _ => destruct (le_dec a b); try omega
-end.
 
 Lemma tshift_commut T :
   forall a c d (p : nat) , tshift (tshift T a p) c (d+p) = tshift (tshift T c (d-a+p)) a (p).
@@ -247,8 +242,6 @@ Lemma tshift_shape : forall e T' n, get_typ_aux e n 0 = Some T' -> exists k T'',
 admit.
 Qed.
 
-
-
 Lemma get_type_insert_some e e' X :
   insert_kind X e e' -> forall Y p T, 
   get_typ_aux e Y 0 = Some (tshift T p 0) -> 
@@ -293,12 +286,6 @@ Qed.
 Arguments get_typ / _ _.
 Compute (tshift (tsubst (tvar (1)) (tvar(0)) 0) 1 1).
 Compute (tsubst (tshift (tvar 1) 1 1) (tshift (tvar(0)) 1 1) 0).
-
-Ltac destruct_match :=
-  match goal with
-  | |- context[match ?a with _ => _ end] => destruct a; simpl in *; try destruct_match
-  | H:context[match ?a with _ => _ end] |- _ => destruct a; simpl in *; try destruct_match
-  end.
 
 Lemma tsubst_tshift_swapN: 
   forall T U X n, n <= X -> (tshift (tsubst T U n) 1 X) = tsubst (tshift T 1 (S X)) (tshift U 1 X) n.
@@ -346,7 +333,9 @@ Definition subst_env T x (d:envElem) := match d with
 end.
 
 Inductive env_subst p T : env -> env -> Prop :=
-| snil e : env_subst p T ((etvar p)::e) (map (subst_env T p) e)
+
+| snil e : env_subst 0 T ((etvar p)::e) e
+
 | scons e e' d : env_subst p T e e' -> env_subst p T (d::e) (d::e').
 
 Fixpoint remove_var e x := match e with
@@ -369,7 +358,12 @@ Fixpoint replace_var e n p := match e with
   end
 end.
 
-(* TODO *)
+
+Lemma get_kind_remove_var_noop e : forall x y, get_kind e y = get_kind (remove_var e x) y.
+Proof.
+  induction e as [|[|]]; intros; simpl in *; auto; [destruct x | destruct y]; eauto.
+Qed.
+
 
 Lemma rem_var_less x y T e : get_typ e y = Some T -> y < x -> get_typ (remove_var e x) y = Some T.
 admit.
@@ -441,11 +435,6 @@ Qed.
 
 Lemma kinding_remove_impl e x U p : kinding (remove_var e x) U p -> kinding e U p.
 admit.
-Qed.
-
-Lemma get_kind_remove_var_noop e : forall x y, get_kind e y = get_kind (remove_var e x) y.
-Proof.
-  induction e as [|[|]]; intros; simpl in *; auto; [destruct x | destruct y]; eauto.
 Qed.
 
 Lemma typing_impl_wf_env e t T : typing e t T -> wf_env e.
@@ -533,16 +522,6 @@ induction e as [|[U|q]]; intros x T m A B.
   now apply insert_kind_kinding with (e:=e).
 Qed.
 
-Lemma insert_shiftl e e' Y X p : 
-  insert_kind Y e e' -> Y < (S X) -> get_kind e' (S X) = Some p -> get_kind e X = Some p.
-admit.
-Qed.
-
-Lemma insert_shiftr e e' Y X p :
-  insert_kind Y e e' -> ~ Y <= X -> get_kind e' X = Some p -> get_kind e X = Some p.
-admit.
-Qed.
-
 Lemma insert_kind_wf_env_conv X e e' :
   insert_kind X e e' -> wf_env e' -> wf_env e.
 admit.
@@ -561,18 +540,37 @@ intros A B C. revert A B. revert e X U kU. dependent induction C ; intros e0 X0 
   destruct (le_dec X0 X).
   + destruct (le_lt_eq_dec _ _ _).
     * destruct X; try omega.
-      replace (S X - 1) with X by omega.
-      assert (get_kind e0 X = Some p) by eauto using insert_shiftl.
-      eauto.
+      cut (get_kind e0 X = Some p); eauto.
+      erewrite get_kind_insert_shift with (e':=e) (X:=X0);
+      simpl; eauto.
     * subst. 
       assert (p = kU) by congruence. 
       subst.
       eauto.
-  + assert (get_kind e0 X = Some p) by eauto using insert_shiftr.
-    eauto.
+  + cut (get_kind e0 X = Some p); eauto. 
+    erewrite get_kind_insert_shift with (e':=e) (X:=X0);
+    simpl; eauto.
 - simpl in *. eauto.
 - simpl in *.
   constructor.
   apply (IHC (etvar q::e0) (S X0) (tshift U' 1 0) kU (icons _ A) B (insert_kind_kinding (inil e0 q) C')).
 Qed.
 
+env_subst_wf_typ :
+wf_typ E1 E2
+wf_env E1
+env_subst X T E1 E2
+wf_env E2
+wf_typ E2 (tsubst T2 X T)
+
+Lemma env_subst_wf_env : wf_env E1 
+env_subst X T E1 E2
+wf_env E2
+
+Lemma env_subst_kinding env_subst X T1 E1 E2
+kinding E1 T2 k
+kinding E2 (tsubst T2 X T1) k.
+
+Lemma env_subst_typing env_subst X T1 E1 E2
+typing E1 t T2
+typing E2 (subst_typ t X T1) T2

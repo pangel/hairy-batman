@@ -166,7 +166,7 @@ Fixpoint tsubst T U (X : nat) :=
       match le_dec X m with
       | left prf => (* X <= m *)
         if le_lt_eq_dec X m prf 
-        then tvar (m-1) (* X < m *)
+        then tvar (pred m) (* X < m *)
         else U (* X = m *)
       | _ => tvar m (* X > m *)
       end

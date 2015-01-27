@@ -55,6 +55,20 @@ induction x.
   + refine (IHe T ).
 *)
 
+
+Fixpoint replace_var e n p := match e with
+| nil => nil
+| d::e' => match n with
+  | 0 => match d with
+    | etvar q => (etvar p)::e'
+    | d => d::e'
+    end
+  | S n' => d::(replace_var e' n p)
+  end
+end.
+
+
+
 (* TODO *)
 Lemma narrowing e t T : 
   forall n p q,
@@ -63,6 +77,6 @@ Lemma narrowing e t T :
   q <= p -> 
   typing (replace_var e n q) t T.
 Proof.
-  admit.
+admit.
 Qed.
 
