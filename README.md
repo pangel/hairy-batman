@@ -1,3 +1,9 @@
+Utilisation
+-----------
+Commencer par faire `make`.  
+Si une dépendance d'un fichier est modifiée (par exemple `init.v`), fermer  
+le fichier dans CoqIDE, refaire `make` et ré-ouvrir le fichier.
+
 Description du projet
 ----------------------
 https://wikimpri.dptinfo.ens-cachan.fr/lib/exe/fetch.php?media=cours:upload:2-7-2-projet.pdf
