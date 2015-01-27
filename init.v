@@ -18,6 +18,7 @@ https://wikimpri.dptinfo.ens-cachan.fr/lib/exe/fetch.php?media=cours:upload:2-7-
 (** ** Hints et tactiques globales *)
 
 (** On n'a pas à écrire les arguments inférables *)
+
 Global Set Implicit Arguments. 
 Global Unset Strict Implicit.
 
@@ -29,6 +30,8 @@ Require Export
   Bool
   Coq.Program.Equality.
 
+(** Inversion légèrement améliorée *)
+
 Ltac inv H := inversion H; clear H; subst.
 
 Hint Resolve 
@@ -36,6 +39,9 @@ Hint Resolve
   NPeano.Nat.max_le_compat_r 
   Max.max_idempotent
   le_n_S.
+
+
+(** Raisonnement propositinnel simple et élimination du constructeur [Some] *)
 
 Hint Extern 1 =>
   match goal with
@@ -54,6 +60,16 @@ Hint Extern 4 =>
 
 Definition kind := nat.
 
+(** On utilise les indices de Bruijn localement et globalement.
+    On n'a pas à s'occuper d'alpha-conversion, mais beaucoup de lemmes sont
+    dûs au shifts lors de passage sous / sortie de binders.
+
+    On aurait pu utiliser Autosubst ou l'un des autres travaux mentionnés ici :
+
+    https://www.ps.uni-saarland.de/autosubst/
+
+    Mais ça aurait été moins intéressant. *)
+
 Inductive typ := 
 | tvar (x:nat) 
 | arrow (T:typ) (S:typ) 
@@ -66,14 +82,38 @@ Inductive term :=
 | tabs (n:kind) (t:term) 
 | tapp (t:term) (T:typ).
 
-(* On pourrait aussi définir un type list-like avec 3 constructeurs *)
+(** L'environnement est une liste d'éléments d'un type à deux constructeurs.
+    On a donc un seul environnement, mais bien deux ensembles d'indices : la
+    [n]ième variable de type de [e] est la [n]ième variable de [e] privé de
+    toutes ses variables de terme. L'inverse est vrai pour les variables de
+    terme.
+
+    Il serait peut-être plus simple d'avoir un type list-like à trois
+    constructeurs [enil], [evar] et [etvar].
+
+    Lorsqu'une variable de terme est extraite d'un environnement, son type est
+    [tshift]é d'autant de variables de type qu'il y a à sa gauche. On aurait pu
+    effectuer ce shift à chaque insertion d'une variable de type, mais cela
+    aurait rendu les énoncés plus complexes puisque même un énoncé simple comme
+    [wf_env] (well-formedness d'environnement) aurait dû mentionner des shifts
+    d'environnement lors de ses appels récursifs.
+
+    Maintenir deux environnements forcerait soit à aussi utiliser le
+    pré-shifting mentionné ci-dessus, soit à garder trace du contexte de kind
+    auquel une variable de terme peut faire référence.
+
+    Enfin, on pourrait avoir un seul ensemble d'indices pour les variables et
+    traiter tous les binders de façon uniforme lors des substitutions. C'est
+    une possibilité que nous n'avons pas explorée. *)
+
 Inductive envElem :=
 | evar (T:typ)
 | etvar (n:kind).
 
 Definition env := list envElem.
 
-(* Les variables avec les noms suivants prennent le type correspondant par défaut *)
+(** Les variables avec les noms suivants prennent le type correspondant par défaut : *)
+
 Implicit Types 
 (x y z X Y Z : nat)
 (T U V : typ)
@@ -81,14 +121,16 @@ Implicit Types
 (t s u v : term)
 (e f : env).
 
-(** ** Shifting et substitution *)
+(** ** Shifting et substitutions *)
 
-(* Décale [n] de [inc] si [n >= floor] *)
+(** Décale [n] de [inc] si [n >= floor]. *)
+
 Definition shift_var n inc floor :=
   if (le_dec floor n) then inc+n else n.
 Arguments shift_var / _ _ _.
 
-(** Décale de [m] les variables de {type,terme,type} de {[T],[t],[t]} qui pointent après [p] (non strict) *)
+(** Décale de [m] les variables de {type,terme,type} de {[T],[t],[t]} qui pointent après [p] (non strict). *)
+
 Fixpoint tshift T (m : nat) (p : nat) := 
   match T with
     | tvar n => tvar (shift_var n m p)
@@ -116,7 +158,8 @@ Fixpoint tshift_in_term t (m p : nat) :=
   | tapp s U => tapp (tshift_in_term s m p) (tshift U m p)
   end.
 
-(* Dans {[T],[t],[t]}, remplace les variables de {type,terme,type} qui pointent vers {[X],[x],[X]} par {[U],[u],[U]} *)
+(** Dans {[T],[t],[t]}, remplace les variables de {type,terme,type} qui pointent vers {[X],[x],[X]} par {[U],[u],[U]}. *)
+
 Fixpoint tsubst T U (X : nat) := 
   match T with
     | tvar m => 
@@ -158,35 +201,39 @@ Fixpoint subst_type t U X :=
 
 (** ** Manipulation des contextes *)
 
-(* Récupère le kind donné par [e] à la variable de type [n] *)
+(** Récupère le kind donné par [e] à la [n]ième variable de type. *)
+
 Fixpoint get_kind e (n:nat) : (option kind) := 
   match e with
     |(etvar m)::e' => match n with 0 => Some m | S n => get_kind e' n end
-    |(evar T)::e' => get_kind (e') n
+    |(evar T)::e' => get_kind e' n
     |nil => None
   end
 .
 
-(* Récupère le type donné par [e] à la variable de terme [n], avec shift initial de [m] *)
+(** Récupère le type donné par [e] à la [n]ième variable de terme, avec shift initial de [m]. *)
+
 Fixpoint get_typ_aux e (n: nat) (m : nat) : (option typ) :=
   match e with
-    |(etvar q)::e' => get_typ_aux (e') n (1+m)
+    |(etvar q)::e' => get_typ_aux e' n (1+m)
     |(evar T)::e' => match n with 0 => Some (tshift T m 0) | S n => get_typ_aux (e') n m end
     |nil => None
   end
 .
 
-(* Récupère le type donné par [e] à la variable de terme [n].
+(** Récupère le type donné par [e] à la [n]ième variable de terme.
    Chaque variable de terme située à gauche du type trouvé occasionne un 
-   tshift du type retourné *)
+   tshift du type retourné. *)
+   
 Definition get_typ e (n:nat) : (option typ) :=
  get_typ_aux e n 0
 .
 
 (** ** Well-formedness *)
 
-(* Définition et preuve de décidabilité de la well-formedness des types
-   et des environnements *)
+(** Définition et preuve de décidabilité de la well-formedness des types
+   et des environnements. *)
+
 Fixpoint wf_typ e T {struct T} : Prop :=
 match T with
 | tvar X => get_kind e X = None -> False
@@ -216,7 +263,7 @@ Proof.
   destruct (wf_typ_dec e U); tauto.
 Qed.
 
-(** ** Prédicats de kinding et de typing *)
+(** ** Prédicats de kinding et de typing. *)
 
 Inductive kinding e : typ -> kind -> Prop :=
 | kvar X p q : get_kind e X = Some p -> p <= q -> wf_env e -> kinding e (tvar X) q
@@ -232,7 +279,8 @@ Inductive typing e : term -> typ -> Prop :=
 
 Hint Constructors kinding typing.
 
-(** ** Cumulativité : kinding e T _ est clos par le haut *)
+(** ** Cumulativité : kinding e T _ est clos par le haut. *)
+
 Lemma cumulativity : forall e T p q, kinding e T p -> p <= q -> kinding e T q.
 Proof.
   intros e T.
@@ -272,5 +320,5 @@ Proof.
               * omega.
           + omega.
           }
-Qed. 
+Qed.
 Hint Resolve cumulativity.
