@@ -49,11 +49,13 @@ with neutral : term -> Prop :=
 | neutral_var x : neutral (var x)
 | neutral_app t u : neutral (app t u)
 | neutral_tabs k t : neutral (tabs k t)
+| neutral_tapp t T : neutral (tapp t T)
 
 with neutralT : term -> Prop :=
 | neutralT_var x : neutralT (var x)
 | neutralT_app t u : neutralT (app t u)
-| neutralT_abs T t : neutralT (abs T t).
+| neutralT_abs T t : neutralT (abs T t)
+| neutralT_tapp t T : neutralT (tapp t T).
 
 Lemma normal_neutral_preserved_typ_subst t T X :
    (normal t -> normal (subst_type t T X)) 
@@ -107,7 +109,163 @@ Proof.
     +  intros.
       simpl.
       inversion H.
+      econstructor.
     +  intros.
       simpl.
       inversion H.
+      econstructor.
+Qed.
+
+Lemma normal_is_really_normal : forall u,  normal u <-> (forall v , red u v -> False).
+intros.
+induction u.
+- split.
+  + intros.
+    revert H.
+    dependent induction H0.
+    *  intros. inversion H.
+    *  intros. apply IHclos_trans1. assumption.
+  + intros.
+    econstructor.
+- split.
+  + intros.
+    dependent induction H0.
+    * { intros. inversion H0. subst. inversion H.
+        inversion IHu.
+        assert (forall v, red u v -> False).
+        - apply H5.
+          assumption.
+        - specialize (H7 u0).
+          apply H7.
+          econstructor.
+          apply H4.
+      }
+    * apply IHclos_trans1 ; assumption.
+  + intros.
+    econstructor.
+    apply IHu.
+    intros.
+    specialize (H (abs T v)).
+    apply H.
+    apply red_congruent.
+    assumption.
+- split.
+  + intros.
+    inversion H.
+    dependent induction H0.
+    * { 
+      - inversion H0.
+        + inversion H5 ;rewrite <- H9 in H7; discriminate.
+        + assert ( (forall v, red u1 v -> False)).
+          * apply IHu1 ; auto.
+          * specialize (H10 u0).
+            apply H10.
+            econstructor.
+            apply H9.
+        + assert ( (forall v, red u2 v -> False)).
+          * apply IHu2 ; auto.
+          * specialize (H10 v).
+            apply H10.
+            econstructor.
+            apply H9.
+      }
+    * apply (IHclos_trans1 IHu2 IHu1 H u1 u2 H3 H4 H5) ;auto.
+  + intros.
+    econstructor.
+    * apply IHu1.
+      intros.
+      specialize (H (app v u2)).
+      apply H.
+      apply red_congruent.
+      assumption.
+    * apply IHu2.
+      intros.
+      specialize (H (app u1 v)).
+      apply H.
+      apply red_congruent.
+      assumption.
+    * destruct u1; try econstructor.
+      intros.
+      exfalso.
+      specialize (H (subst u1 u2 0)).
+      apply H.
+      econstructor.
+      econstructor.
+- split.
+  + intros.
+    inversion H.
+    dependent induction H0.
+    * inversion H0.
+      subst.
+      inversion IHu.
+      specialize (H1 H2 u0).
+      apply H1.
+      econstructor.
+      apply H7.
+   * apply (IHclos_trans1 IHu H n u) ;auto.
+  + intros.
+    econstructor.
+    apply IHu.
+    intros.
+    specialize (H (tabs n v)).
+    apply H.
+    apply red_congruent. auto.
+- split.
+  + intros.
+    inversion H.
+    dependent induction H0.
+    * { inversion IHu.
+        inversion H0.
+        - subst.
+          inversion H4.
+        - subst. 
+          specialize (H5 H3 u0).
+          apply H5.
+          econstructor.
+          auto.
+      }
+    * apply (IHclos_trans1 IHu H u T H3 H4) ; auto.
+  + intros.
+    econstructor.
+    * apply IHu.
+      intros.
+      specialize (H (tapp v T)).
+      apply H.
+      apply red_congruent. auto.
+    * destruct u; try econstructor.
+      exfalso.
+      specialize (H (subst_type u T 0)). 
+      apply H.
+      econstructor.
+      econstructor.
+Qed.
+
+Lemma big_step_congruent :
+   (forall T t u, red t u -> red (abs T t) (abs T u)) 
+/\ (forall u t v, red t v -> red (app u t) (app u v)) 
+/\ (forall u t v, red t v -> red (app t u) (app v u)) 
+/\ (forall k t u, red t u -> red (tabs k t) (tabs k u)) 
+/\ (forall T t u, red t u -> red (tapp t T) (tapp u T)).
+Proof.
+repeat split ; intros a b c H ; induction H.
+- do 2 econstructor ; auto.
+- apply t_trans with (y := abs a y).
+  + apply IHclos_trans1.
+  + apply IHclos_trans2.
+- do 2 econstructor ; auto.
+- apply t_trans with (y := app a y).
+  + apply IHclos_trans1.
+  + apply IHclos_trans2.
+- do 2 econstructor ; auto.
+- apply t_trans with (y := app y a).
+  + apply IHclos_trans1.
+  + apply IHclos_trans2.
+- do 2 econstructor ; auto.
+- apply t_trans with (y := tabs a y).
+  + apply IHclos_trans1.
+  + apply IHclos_trans2.
+- do 2 econstructor ; auto.
+- apply t_trans with (y := tapp y a).
+  + apply IHclos_trans1.
+  + apply IHclos_trans2.
 Qed.
