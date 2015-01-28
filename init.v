@@ -228,6 +228,7 @@ Fixpoint get_typ_aux e (n: nat) (m : nat) : (option typ) :=
 Definition get_typ e (n:nat) : (option typ) :=
  get_typ_aux e n 0
 .
+(** TODO essayer un get_typ qui accumule les shifts *)
 
 (** ** Well-formedness *)
 
@@ -278,6 +279,29 @@ Inductive typing e : term -> typ -> Prop :=
 | rtapp t T U p : typing e t (all p T) -> kinding e U p -> typing e (tapp t U) (tsubst T U 0).
 
 Hint Constructors kinding typing.
+
+(** *** Lemmes simples *)
+
+
+(** Well-formedness de [T] implique [kinding] de [T]. *)
+
+Lemma wf_typ_impl_kinding e T : wf_typ e T -> exists p, kinding e T p.
+admit.
+Qed.
+
+(** Le typage implique la well-formedness. *)
+
+Lemma typing_impl_wf_env e t T : typing e t T -> wf_env e.
+Proof.
+  induction 1; simpl in *; auto; tauto.
+Qed.
+
+
+(** Effet d'un weakening sur un typing : pareil que de rajouter un binder au fond d'un contexte *)
+
+Lemma typing_weak1 e t T U : typing e t T -> typing ((evar U)::e) (shift t 1 0) T.
+admit.
+Qed.
 
 (** ** Cumulativité : kinding e T _ est clos par le haut. *)
 

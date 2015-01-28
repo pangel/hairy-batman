@@ -1,6 +1,6 @@
-Require Export init.
+Require Export shift_lemmas.
 
-(* Les variables avec les noms suivants prennent le type correspondant par défaut *)
+(** Les variables avec les noms suivants prennent le type correspondant par défaut : *)
 Implicit Types 
 (x y z X Y Z : nat)
 (T U V : typ)
@@ -8,21 +8,8 @@ Implicit Types
 (t s u v : term)
 (e f : env).
 
-
-Hint Extern 1 => 
-match goal with
-| |- context [le_dec ?a ?b] => destruct (le_dec a b); try omega
-| |- context [eq_nat_dec ?a ?b] => destruct (eq_nat_dec a b); try omega
-| H : context [le_dec ?a ?b] |- _ => destruct (le_dec a b); try omega
-end.
-
-
-Ltac destruct_match :=
-  match goal with
-  | |- context[match ?a with _ => _ end] => destruct a; simpl in *; try destruct_match
-  | H:context[match ?a with _ => _ end] |- _ => destruct a; simpl in *; try destruct_match
-  end.
-
+(** [insert_kind X e e'] est vrai quand [e'] est [e] avec une variable de type 
+   insérée en [X]ième position. *)
 
 Inductive insert_kind : nat -> env -> env -> Prop :=
 | inil e p : insert_kind 0 e ((etvar p)::e)
@@ -30,8 +17,8 @@ Inductive insert_kind : nat -> env -> env -> Prop :=
 | icons n p e e' : insert_kind n e e' -> insert_kind (S n) ((etvar p)::e) ((etvar p)::e').
 Hint Constructors insert_kind.
 
-(** Relation entre [insert_kind] et [get_kind] : l'insertion en position [X] maintient
-    le résultat à de [get_kind _ Y] à [shift_var Y 1 X] près *)
+(** Relation entre [insert_kind] et [get_kind] : l'insertion en position [X] maintient
+    le résultat à de [get_kind _ Y] à [shift_var Y 1 X] près. *)
 
 Lemma get_kind_insert_shift e e' X Y :
   insert_kind X e e' -> get_kind e Y = get_kind e' (shift_var Y 1 X).
@@ -59,6 +46,9 @@ Proof.
     + assumption.
 Qed.
 
+(** Relation entre [insert_kind] et [wf_env] : la well-formedness est fermée 
+    par insertion/suppression. *)
+
 Lemma insert_kind_wf_env X e e' : 
   insert_kind X e e' -> wf_env e -> wf_env e'.
 Proof.
@@ -67,6 +57,15 @@ Proof.
   split; auto.
   now apply insert_kind_wf_typ with (n:=n) (e:=e).
 Qed.
+
+
+Lemma insert_kind_wf_env_conv X e e' :
+  insert_kind X e e' -> wf_env e' -> wf_env e.
+admit.
+Qed.
+
+(** Relation entre [insert_kind] et [kinding] : les variables de type "après"
+    [X] doivent avoir leur pointeur décalé. *)
 
 Lemma insert_kind_kinding X e e' T p: 
   insert_kind X e e' -> kinding e T p -> kinding e' (tshift T 1 X) p.
@@ -86,161 +85,7 @@ Proof.
     eapply IHT; eauto.
 Qed.
 
-Lemma tshift_ident : forall T p , tshift T 0 p = T.
-Proof.
-  induction T.
-  - intros.
-    unfold tshift.
-    unfold shift_var.
-    destruct (le_dec p x) as []eqn:?.
-    + replace (0+x) with (x).
-      * reflexivity.
-      * omega.
-    + reflexivity.
-  - intros.
-    simpl.
-    replace (tshift T1 0 p) with T1.
-    + replace (tshift T2 0 p) with T2.
-      * reflexivity.
-      * symmetry.
-        apply (IHT2 p).
-    + symmetry.
-      apply (IHT1 p).
-  - intros.
-    simpl.
-    replace (tshift T 0 (S p)) with T.
-    + reflexivity.
-    + symmetry.
-      apply (IHT (S p)).
-Qed.
-
-Lemma tshift_commut T :
-  forall a c d (p : nat) , tshift (tshift T a p) c (d+p) = tshift (tshift T c (d-a+p)) a (p).
-Proof.
-induction T; intros a c d p; simpl in *.
-- f_equal; eauto 7.
-- f_equal; eauto.
-- simpl. 
-  replace (S (d+p)) with (d + (S p)) by omega.
-  rewrite IHT with (p := (S p)). 
-  do 3 f_equal. 
-  omega.
-Qed.
-
-Lemma tshift_plus1_m T p : forall m, tshift T (S p) m = tshift (tshift T 1 m) p (m+1).
-Proof.
-induction T.
-- intros.
-  simpl in *.
-  eauto.
-- intros.
-  simpl in *.
-  rewrite IHT1.
-  rewrite IHT2.
-  auto.
-- intros.
-  simpl in *.
-  rewrite IHT.
-  f_equal.
-Qed.
-
-Lemma tshift_plus1 T p :  tshift T (S p) 0 = tshift (tshift T 1 0) p 0.
-Proof.
-transitivity (tshift (tshift T 1 0) p 1).
-- apply tshift_plus1_m.
-- transitivity (tshift (tshift T p 0) 1 0). 
-  + apply (tshift_commut T 1 p 1 0) .
-  + apply (tshift_commut T p 1 0 0) .
-Qed.
-
-Lemma tshift_plus1_conv T p :  tshift T (S p) 0 = tshift (tshift T p 0) 1 0.
-Proof.
-transitivity (tshift (tshift T 1 0) p 0).
-- apply tshift_plus1.
-- apply (tshift_commut T 1 p 0 0).
-Qed.
-
-
-Lemma get_typ_plusone : 
-  forall e Y T n, get_typ_aux e Y n = Some T -> get_typ_aux e Y (S n) = Some (tshift T 1 0).
-Proof.
-  induction e.
-  - intros.
-    simpl in *.
-    discriminate.
-  - destruct a.
-    + simpl in *.
-      destruct Y.
-      * { intros.
-          injection H as H1.
-          f_equal.
-          replace T0 with (tshift T n 0).
-          apply tshift_plus1_conv.
-        }
-      * { intros.
-          eauto.
-         }
-    + simpl in *.
-      intros.
-      rewrite IHe with (T :=T) ; auto.
-Qed.
-
-Lemma get_typ_aux_1 e Y T : 
-  get_typ_aux e Y 1 = Some T -> exists T', T = tshift T' 1 0 /\ get_typ_aux e Y 0 = Some T'.
-admit.
-Qed.
-
-Lemma tshift_inject T U : forall m,  tshift T 1 m = tshift U 1 m -> T = U.
-revert T U.
-induction T.
-- destruct U; try discriminate ; try f_equal.
-  simpl in *.
-  intros.
-  injection H as H1. f_equal. 
-  auto.
-- destruct U; try discriminate.
-  intros. simpl in *.
-  injection H as H1 H2.
-  f_equal.
-  + rewrite (IHT1 U1 m) ; auto.
-  + rewrite (IHT2 U2 m) ; auto.
-- destruct U; try discriminate.
-  simpl in *.
-  intros.
-  injection H as H1 H2.
-  f_equal.
-  + apply H2.
-  + rewrite (IHT U (S m)) ;auto.
-Qed.
-
-Lemma tshift_rem1 T U p k : tshift T (S p) 0 = tshift U (S k) 0 -> tshift T p 0 = tshift U k 0.
-Proof.
-intros.
-refine (@tshift_inject _ _  0 _).
-replace (tshift (tshift T p 0) 1 0) with (tshift T (S p) 0).
-- replace (tshift (tshift U k 0) 1 0) with (tshift U (S k) 0).
-  + apply H.
-  + apply tshift_plus1_conv.
-- apply tshift_plus1_conv.
-Qed.
-
-
-
-Lemma tshift_swap1 T n : tshift (tshift T 1 n) 1 0 = tshift (tshift T 1 0) 1 (S n).
-Proof.
-symmetry.
-replace (S n) with (n + 1 + 0) by omega.
-replace (n) with (n + 1 -1 + 0) at 2 by omega.
-apply (tshift_commut T 1 1 (n+1) 0).
-Qed.
-
-Lemma tshift_swapN T X p : tshift (tshift T 1 (X-p)) p 0 = tshift (tshift T p 0) 1 X.
-admit.
-Qed.
-
-Lemma tshift_shape : forall e T' n, get_typ_aux e n 0 = Some T' -> exists k T'', T' = tshift T'' k 0.
-admit.
-Qed.
+(** Version générale de l'effet d'[insert_kind] sur [get_typ] *)
 
 Lemma get_type_insert_some e e' X :
   insert_kind X e e' -> forall Y p T, 
@@ -280,23 +125,13 @@ induction 1; simpl get_typ_aux; intros Y p' T0 A.
     rewrite IHinsert_kind.
     f_equal. 
     replace (S n - S p') with (n - p') by omega.
-    now rewrite <- tshift_plus1_conv.
+    now rewrite <- tshift_plus1.
 Qed.
 
 Arguments get_typ / _ _.
-Compute (tshift (tsubst (tvar (1)) (tvar(0)) 0) 1 1).
-Compute (tsubst (tshift (tvar 1) 1 1) (tshift (tvar(0)) 1 1) 0).
 
-Lemma tsubst_tshift_swapN: 
-  forall T U X n, n <= X -> (tshift (tsubst T U n) 1 X) = tsubst (tshift T 1 (S X)) (tshift U 1 X) n.
-Proof.
-induction T; intros; simpl in *.
-- destruct_match; try omega; try (f_equal; omega); auto.
-- rewrite IHT1, IHT2; auto.
-- rewrite IHT with (X:=S X); try omega.
-  do 2 f_equal.
-  now rewrite <- tshift_swap1.
-Qed.
+
+(** Préservation du typage par [insert_kind] *)
 
 Lemma insert_kind_typing X e e' t T : 
   insert_kind X e e' -> typing e t T -> typing e' (tshift_in_term t 1 X) (tshift T 1 X).
@@ -305,9 +140,6 @@ Proof.
   revert H. revert X e'.
   induction H0; intros.
   - simpl in *. 
-(* with preshifted env : 
-Lemma get_typ_aux e x 0 = Some T -> insert_kind X e e' -> get_typ_aux e' x 0 = tshift T 1 X
-*)
     pose proof (tshift_shape H) as (k & T'' & A); subst.
     pose proof (get_type_insert_some H1 H).
     rewrite tshift_swapN in H2.
@@ -327,6 +159,7 @@ Qed.
 
 
 (* TODO *)
+(*
 Definition subst_env T x (d:envElem) := match d with
 | (evar U) => evar (tsubst U T x)
 | d => d
@@ -338,15 +171,6 @@ Inductive env_subst p T : env -> env -> Prop :=
 
 | scons e e' d : env_subst p T e e' -> env_subst p T (d::e) (d::e').
 
-Fixpoint remove_var e x := match e with
-| nil => nil
-| (etvar k)::e' => (etvar k)::remove_var e' x
-| (evar T)::e' => match x with
-  | 0 => e'
-  | S y => (evar T)::(remove_var e' y)
-  end
-end.
-
 Fixpoint replace_var e n p := match e with
 | nil => nil
 | d::e' => match n with
@@ -356,14 +180,46 @@ Fixpoint replace_var e n p := match e with
     end
   | S n' => d::(replace_var e' n p)
   end
+
+*)
+
+(** Suppression d'une variable de terme de l'environnement. *)
+
+Fixpoint remove_var e x := match e with
+| nil => nil
+| (etvar k)::e' => (etvar k)::remove_var e' x
+| (evar T)::e' => match x with
+  | 0 => e'
+  | S y => (evar T)::(remove_var e' y)
+  end
 end.
 
+(** [remove_var] préserve [get_kind] et [kinding]. *)
 
 Lemma get_kind_remove_var_noop e : forall x y, get_kind e y = get_kind (remove_var e x) y.
 Proof.
   induction e as [|[|]]; intros; simpl in *; auto; [destruct x | destruct y]; eauto.
 Qed.
 
+Lemma kinding_remove e U p x : kinding e U p -> kinding (remove_var e x) U p.
+admit.
+Qed.
+
+Lemma kinding_remove_impl e x U p : kinding (remove_var e x) U p -> kinding e U p.
+admit.
+Qed.
+
+(** Cas particulier : Weakening par terme préserve [kinding] *)
+   
+Lemma kinding_remove_impl1 e U p T : kinding e U p -> kinding (evar T::e) U p.
+Proof.
+  replace e with (remove_var (evar T::e) 0) at 1 by auto.
+  apply kinding_remove_impl.
+Qed.
+
+
+(** Relation entre [remove_var] et [get_typ] : les variables de terme "avant" la variable enlevée restent en place, 
+celles "après" sont décalées vers la gauche. *)
 
 Lemma rem_var_less x y T e : get_typ e y = Some T -> y < x -> get_typ (remove_var e x) y = Some T.
 admit.
@@ -373,22 +229,21 @@ Lemma rem_var_more x y T e : get_typ e y = Some T -> y > x -> get_typ (remove_va
 admit.
 Qed.
 
+Lemma rem_var_more_conv e x y T : get_typ (remove_var e x) y = Some T -> x <= y -> get_typ e (S y) = Some T.
+admit.
+Qed.
+
+Lemma rem_var_less_conv e x y T : get_typ (remove_var e x) y = Some T -> x > y -> get_typ e y = Some T.
+admit.
+Qed.
+
+(** Enlever une variable de terme n'impacte pas la well-formedness. *)
+
 Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
 admit.
 Qed.
 
-Lemma typing_weak1 e t T U : typing e t T -> typing ((evar U)::e) (shift t 1 0) T.
-admit.
-Qed.
-
-Lemma get_typ_aux_shift1 e x Tu n : 
-  get_typ_aux e x 0 = Some (tshift Tu n 0) -> get_typ_aux e x 1 = Some (tshift Tu (1+n) 0).
-admit.
-Qed.
-
-Lemma kinding_remove e U p x : kinding e U p -> kinding (remove_var e x) U p.
-admit.
-Qed.
+(** Substituer un terme dans un terme préserve le typage si les types de la variable et du substituant coïncident. *)
 
 Lemma subst_preserves_typing :
   forall e x t u Tt Tu,
@@ -425,22 +280,8 @@ Proof.
     apply rtapp with (p:=p); eauto.
 Qed.
 
-Lemma rem_var_more_conv e x y T : get_typ (remove_var e x) y = Some T -> x <= y -> get_typ e (S y) = Some T.
-admit.
-Qed.
 
-Lemma rem_var_less_conv e x y T : get_typ (remove_var e x) y = Some T -> x > y -> get_typ e y = Some T.
-admit.
-Qed.
-
-Lemma kinding_remove_impl e x U p : kinding (remove_var e x) U p -> kinding e U p.
-admit.
-Qed.
-
-Lemma typing_impl_wf_env e t T : typing e t T -> wf_env e.
-Proof.
-  induction 1; simpl in *; auto; tauto.
-Qed.
+(** Well-formedness maintenue par weakening *)
 
 Lemma remove_var_preserves_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
 Proof.
@@ -448,6 +289,16 @@ Proof.
   contradict A.
   now rewrite <- get_kind_remove_var_noop.
 Qed.
+
+
+Lemma remove_var_implies_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
+Proof.
+  induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
+  contradict A.
+  now rewrite <- get_kind_remove_var_noop.
+Qed.
+
+(** Typage maintenu par weakening *)
 
 Lemma typing_weakening_var_ind :
   forall e x t T,
@@ -469,30 +320,9 @@ Proof.
     eapply rtapp with (p:=p); auto. 
 Qed.
 
-Lemma wf_typ_impl_kinding e T : wf_typ e T -> exists p, kinding e T p.
-admit.
-Qed.
-   
-Lemma kinding_remove_impl1 e U p T : kinding e U p -> kinding (evar T::e) U p.
-Proof.
-  replace e with (remove_var (evar T::e) 0) at 1 by auto.
-  apply kinding_remove_impl.
-Qed.
 
-
-Lemma get_typ_aux_unshift1 e x T m: 
-  get_typ_aux e x (S m) = Some (tshift T m 0) ->
-  exists T', get_typ_aux e x m = Some (tshift T' m 0) /\ T = (tshift T' 1 0).
-Proof.
-admit.
-Qed.
-
-Lemma tshift_remN:
-  forall T U m,
-  tshift T m 0 = tshift U m 0 -> T = U.
-Proof.
-admit.
-Qed.
+(** Version générale de la préservation du kinding dans un environnement affaibli
+    par des variables de terme et de type *)
 
 Lemma get_typ_kinding_general e : 
   forall x T m, 
@@ -522,10 +352,8 @@ induction e as [|[U|q]]; intros x T m A B.
   now apply insert_kind_kinding with (e:=e).
 Qed.
 
-Lemma insert_kind_wf_env_conv X e e' :
-  insert_kind X e e' -> wf_env e' -> wf_env e.
-admit.
-Qed.
+(** Substituer un type dans un type préserve le kinding si les kinds de la
+    variable de type et du substituant coïncident *)
 
 Lemma tsubst_preserves_kinding e e' X U T kU kT :
 insert_kind X e e' ->
@@ -542,7 +370,7 @@ intros A B C. revert A B. revert e X U kU. dependent induction C ; intros e0 X0 
     * destruct X; try omega.
       cut (get_kind e0 X = Some p); eauto.
       erewrite get_kind_insert_shift with (e':=e) (X:=X0);
-      simpl; eauto.
+      simpl; eauto. destruct (le_dec X0 X); try omega. simpl. eauto.
     * subst. 
       assert (p = kU) by congruence. 
       subst.
@@ -556,6 +384,7 @@ intros A B C. revert A B. revert e X U kU. dependent induction C ; intros e0 X0 
   apply (IHC (etvar q::e0) (S X0) (tshift U' 1 0) kU (icons _ A) B (insert_kind_kinding (inil e0 q) C')).
 Qed.
 
+(*
 env_subst_wf_typ :
 wf_typ E1 E2
 wf_env E1
@@ -574,3 +403,4 @@ kinding E2 (tsubst T2 X T1) k.
 Lemma env_subst_typing env_subst X T1 E1 E2
 typing E1 t T2
 typing E2 (subst_typ t X T1) T2
+*)
