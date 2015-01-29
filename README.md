@@ -6,10 +6,11 @@ Lire le code
 ------------
 Le plus agréable est de faire `make html` puis d'ouvrir `./html/toc.html` dans un navigateur.
 
+Il vaut mieux lire `init` puis `shift_lemmas` puis `reg_nar_lemmas`.
+
 Recompiler
 ----------
-Si une dépendance d'un fichier est modifiée (par exemple `init.v`), fermer  
-le fichier dans CoqIDE, refaire `make` et ré-ouvrir le fichier.
+Si une dépendance d'un fichier est modifiée (par exemple `init.v`), fermer le fichier dans CoqIDE, refaire `make` et ré-ouvrir le fichier.
 
 Ajouter un fichier `.v`
 ------------------------

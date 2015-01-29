@@ -1,6 +1,7 @@
 Require Import reg_nar_lemmas.
 
 (* Les variables avec les noms suivants prennent le type correspondant par défaut *)
+
 Implicit Types 
 (x y z X Y Z : nat)
 (T U V : typ)
@@ -32,7 +33,32 @@ Proof.
     eapply tsubst_preserves_kinding with (e':=etvar p::e) (kU:=p); eauto.
 Qed.
 
-(*
+(** Donne le kind [p] à la [n]ième variable de type de [e] *)
+
+Fixpoint replace_kind e n p := match e with
+| nil => nil
+| d::e' => match n with
+  | 0 => match d with
+    | etvar q => (etvar p)::e'
+    | d => d::e'
+    end
+  | S n' => d::(replace_kind e' n p)
+  end
+end.
+
+(* TODO *)
+
+Lemma narrowing e t T : 
+  forall n p q,
+  get_kind e n = Some p -> 
+  typing e t T -> 
+  q <= p -> 
+  typing (replace_kind e n q) t T.
+Proof.
+admit.
+Qed.
+
+(* ???
 Lemma kind_well_formed : forall e T x, get_typ_aux e x 0 = Some T -> wf_env e -> wf_typ e T.
 Proof.
 intros e T x.
@@ -54,29 +80,4 @@ induction x.
   destruct a.
   + refine (IHe T ).
 *)
-
-
-Fixpoint replace_var e n p := match e with
-| nil => nil
-| d::e' => match n with
-  | 0 => match d with
-    | etvar q => (etvar p)::e'
-    | d => d::e'
-    end
-  | S n' => d::(replace_var e' n p)
-  end
-end.
-
-
-
-(* TODO *)
-Lemma narrowing e t T : 
-  forall n p q,
-  get_kind e n = Some p -> 
-  typing e t T -> 
-  q <= p -> 
-  typing (replace_var e n q) t T.
-Proof.
-admit.
-Qed.
 
