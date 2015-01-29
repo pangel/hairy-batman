@@ -280,7 +280,7 @@ Inductive typing e : term -> typ -> Prop :=
 
 Hint Constructors kinding typing.
 
-(** *** Lemmes simples *)
+(** *** Lemmes simples sur [kinding] et [typing] *)
 
 
 (** Well-formedness de [T] implique [kinding] de [T]. *)
@@ -303,7 +303,7 @@ Lemma typing_weak1 e t T U : typing e t T -> typing ((evar U)::e) (shift t 1 0) 
 admit.
 Qed.
 
-(** ** Cumulativité : kinding e T _ est clos par le haut. *)
+(** ** Cumulativité : Dans [e], si [T] as pour kind [p] et [p <= q], alors [T] a pour kind [q] *)
 
 Lemma cumulativity : forall e T p q, kinding e T p -> p <= q -> kinding e T q.
 Proof.

@@ -12,9 +12,9 @@ Lemma regularity e t T : typing e t T -> exists p, kinding e T p.
 Proof.
   intros.
   induction H.
-  - eapply get_typ_kinding_general with (m:=0).
-    + rewrite tshift_ident. eauto.
-    + assumption.
+  - setoid_rewrite <- tshift_ident with (p:=0).
+    setoid_rewrite <- tshift_ident with (p:=0) in H. 
+    eapply get_typ_kinding_general with (m:=0); eauto.
   - destruct IHtyping as [p A].
     apply typing_impl_wf_env in H.
     destruct H.

@@ -1,8 +1,19 @@
 Utilisation
 -----------
-Commencer par faire `make`.  
+Commencer par faire `make`.
+
+Lire le code
+------------
+Le plus agréable est de faire `make html` puis d'ouvrir `./html/toc.html` dans un navigateur.
+
+Recompiler
+----------
 Si une dépendance d'un fichier est modifiée (par exemple `init.v`), fermer  
 le fichier dans CoqIDE, refaire `make` et ré-ouvrir le fichier.
+
+Ajouter un fichier `.v`
+------------------------
+Si vous ajoutez une dépendance, faire `coq_makefile *.v > Makefile && make`
 
 Description du projet
 ----------------------

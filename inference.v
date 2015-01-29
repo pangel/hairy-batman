@@ -1,5 +1,4 @@
-(** * Décidabilité, correction et complétude de l'inférence de type pour le
-système F stratifié.
+(** * Correction et complétude de l'inférence de type pour le système F stratifié.
 
 *)
 
@@ -21,7 +20,7 @@ Proof.
   repeat decide equality.
 Qed.
 
-(** * Inférence de kind et de type *)
+(** ** Inférence de kind et de type *)
 
 (** On reprend exactement les règles données dans l'article *)
 
@@ -66,7 +65,10 @@ Fixpoint infer_typ e t : option typ := match t with
   end
 end.
 
-(** * Correction et complétude de l'inférence *)
+(** ** Correction et complétude de l'inférence *)
+
+(** On automatise la disjonction de cas au moment de traverser les fonctions
+    d'inférence *)
 
 Hint Local Extern 1 =>
   let destr T := destruct T eqn:?; try discriminate
@@ -77,30 +79,38 @@ Hint Local Extern 1 =>
     | H: exists a, _ /\ _ |- _ => decompose [ex and] H; clear H
   end.
 
-Lemma infer_kind_impl T :
+(** Correction d'[infer_kind] *)
+
+Lemma infer_kind_correct T :
   forall e p, infer_kind e T = Some p -> kinding e T p.
 Proof.
   induction T; simpl; eauto 10.
 Qed.
-Hint Resolve infer_kind_impl.
+Hint Resolve infer_kind_correct.
 
-Lemma infer_kind_conv T e p:
+(** Complétude d'[infer_kind] *)
+
+Lemma infer_kind_complete T e p:
   kinding e T p -> exists q, q <= p /\ infer_kind e T = Some q.
 Proof.
   induction 1; simpl; eauto 10.
 Qed.
-Hint Resolve infer_kind_conv.
+Hint Resolve infer_kind_complete.
 
-Lemma infer_typ_impl t : 
+(** Correction d'[infer_typ] *)
+
+Lemma infer_typ_correct t : 
   forall e T, infer_typ e t = Some T -> typing e t T.
 Proof.
   induction t; simpl; eauto 10.
 Qed.
 
-Lemma infer_typ_conv t e T : 
+(** Complétude d'[infer_typ] *)
+
+Lemma infer_typ_complete t e T : 
   typing e t T -> infer_typ e t = Some T.
 Proof.
   induction 1; intros; simpl; eauto 7.
-  apply infer_kind_conv in H0. 
+  apply infer_kind_complete in H0. 
   eauto 9.
 Qed.
