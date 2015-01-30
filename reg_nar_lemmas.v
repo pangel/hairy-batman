@@ -47,9 +47,7 @@ Proof.
     erewrite get_kind_insert_shift; eauto.
   - destruct B as [B C]. 
     split; eauto.
-  - refine (IHT (1+n') (etvar n::e) _ _ _).
-    + apply (icons _ A).
-    + assumption.
+  - apply (IHT (1+n') (etvar n::e) _ (icons _ A) B).
 Qed.
 
 (** *** Relation entre [insert_kind] et [wf_env] *)
@@ -61,10 +59,8 @@ Lemma insert_kind_wf_env X e e' :
 Proof.
   induction 1; simpl; auto.
   intros [D E].
-  split; auto.
-  now apply insert_kind_wf_typ with (n:=n) (e:=e).
+  eauto using insert_kind_wf_typ.
 Qed.
-
 
 Lemma insert_kind_wf_env_conv X e e' :
   insert_kind X e e' -> wf_env e' -> wf_env e.
@@ -231,13 +227,6 @@ Qed.
 (** Well-formedness maintenue par weakening *)
 
 Lemma remove_var_preserves_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
-Proof.
-  induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
-  contradict A.
-  now rewrite <- get_kind_remove_var_noop.
-Qed.
-
-Lemma remove_var_implies_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
 Proof.
   induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
   contradict A.
