@@ -225,7 +225,6 @@ Fixpoint get_typ e (n: nat) : (option typ) :=
     |nil => None
   end
 .
-(** TODO essayer un get_typ qui accumule les shifts *)
 
 (** ** Well-formedness *)
 

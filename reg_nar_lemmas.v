@@ -203,34 +203,26 @@ Lemma subst_preserves_typing :
   typing (remove_var e x) u Tu -> get_typ e x = Some Tu ->
   typing (remove_var e x) (subst t u x) Tt.
 Proof.
-  intros. revert H1 H0. revert x u Tu. induction H; intros. 
-  - simpl. destruct (le_dec x0 x); 
+  intros. revert H1 H0. revert x u Tu. induction H; simpl in *; intros. 
+  - apply remove_var_preserve_wf_env with (x:=x0) in H0.
+    destruct (le_dec x0 x); 
     [ destruct (le_lt_eq_dec x0 x _) | ]. 
-    + constructor.     
-      * now apply rem_var_more.
-      * now apply remove_var_preserve_wf_env.
-    + subst.
-      rewrite H in H1. 
-      now inv H1.
-    + constructor.
-      * apply rem_var_less; [assumption | omega].
-      * now apply remove_var_preserve_wf_env.
-  - simpl.
-    apply typing_weak1 with (U:=T) in H0.
+    + constructor; auto.     
+      now apply rem_var_more.
+    + subst. 
+      congruence.
+    + constructor; auto.
+      apply rem_var_less; [assumption | omega].
+  - apply typing_weak1 with (U:=T) in H0.
     specialize (IHtyping (S x) (shift u 1 0) Tu).
     eauto.
-  - simpl; eauto.
-  - simpl in *.
-    constructor.
-    specialize (IHtyping x (tshift_in_term u 1 0) (tshift Tu 1 0)). 
-    apply IHtyping; auto. 
-    + setoid_rewrite <- tshift_ident with (p:=0) in H1.
-      rewrite tshift_plus1.
-      rewrite H1.
-      eauto.
-    + eapply insert_kind_typing; eauto.    
-  - simpl in *.
-    apply kinding_remove with (x:=x) in H0.
+  - eauto.
+  - specialize (IHtyping x (tshift_in_term u 1 0) (tshift Tu 1 0)).
+    rewrite H1 in IHtyping.
+    constructor. 
+    apply IHtyping; auto.
+    eapply insert_kind_typing; eauto.    
+  - apply kinding_remove with (x:=x) in H0.
     apply rtapp with (p:=p); eauto.
 Qed.
 
@@ -264,7 +256,8 @@ Proof.
     + apply rem_var_more_conv with (x:=x); auto.
     + apply rem_var_less_conv with (x:=x); auto; omega.
   - constructor.
-    specialize (IHB (evar T::e) (S x)). simpl in *.
+    specialize (IHB (evar T::e) (S x)). 
+    simpl in *.
     apply IHB.
     + auto.
     + split; auto.

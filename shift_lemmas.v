@@ -46,27 +46,8 @@ replace (S d) with (S d + 0) at 1 by omega.
 replace d with (S d - 1 + 0) at 2 by omega.
 now apply tshift_commut.
 Qed.
-(** Simplification de la composition en général. *)
 
-Lemma tshift_plusm T p : forall m, tshift T (S p) m = tshift (tshift T 1 m) p (m+1).
-Proof.
-induction T; intros; simpl in *; auto.
-- now rewrite IHT1, IHT2.
-- now rewrite IHT.
-Qed.
-
-(** Simplification de la composition quand le plancher est nul. *)
-
-Lemma tshift_plus1 T p :  tshift T (S p) 0 = tshift (tshift T p 0) 1 0.
-Proof.
-transitivity (tshift (tshift T 1 0) p 1).
-- now rewrite tshift_plusm.
-- apply (tshift_commut T 1 p 1 0).
-Qed.
-
-(** ** Relation entre [tshift] et d'autres fonctions *)
-
-(** *** Relation utile entre [tshift] et [tsubst]. *)
+(** ** Relation entre [tshift] et [tsubst]. *)
 
 Lemma tsubst_tshift_swapN: 
   forall T U X n, n <= X -> (tshift (tsubst T U n) 1 X) = tsubst (tshift T 1 (S X)) (tshift U 1 X) n.
