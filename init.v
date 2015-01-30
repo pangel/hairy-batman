@@ -211,22 +211,19 @@ Fixpoint get_kind e (n:nat) : (option kind) :=
   end
 .
 
-(** Récupère le type donné par [e] à la [n]ième variable de terme, avec shift initial de [m]. *)
+(** Récupère le type donné par [e] à la [n]ième variable de terme.
+   Chaque variable de type située à gauche du type trouvé occasionne un 
+   tshift du type retourné. *)
 
-Fixpoint get_typ_aux e (n: nat) (m : nat) : (option typ) :=
+Fixpoint get_typ e (n: nat) : (option typ) :=
   match e with
-    |(etvar q)::e' => get_typ_aux e' n (1+m)
-    |(evar T)::e' => match n with 0 => Some (tshift T m 0) | S n => get_typ_aux (e') n m end
+    |(etvar q)::e' => match get_typ e' n with
+      | Some T => Some (tshift T 1 0)
+      | None => None
+      end
+    |(evar T)::e' => match n with 0 => Some T | S n => get_typ (e') n end
     |nil => None
   end
-.
-
-(** Récupère le type donné par [e] à la [n]ième variable de terme.
-   Chaque variable de terme située à gauche du type trouvé occasionne un 
-   tshift du type retourné. *)
-   
-Definition get_typ e (n:nat) : (option typ) :=
- get_typ_aux e n 0
 .
 (** TODO essayer un get_typ qui accumule les shifts *)
 

@@ -68,7 +68,8 @@ Qed.
 
 Lemma insert_kind_wf_env_conv X e e' :
   insert_kind X e e' -> wf_env e' -> wf_env e.
-admit.
+Proof.
+  admit.
 Qed.
 
 (** *** Relation entre [insert_kind] et [kinding] *)
@@ -98,38 +99,15 @@ Qed.
 (** Les variables de terme qui pointent "après" la variable insérée sont décalées de 1 *)
 
 Lemma get_type_insert_some e e' X :
-  insert_kind X e e' -> forall Y p T, 
-  get_typ_aux e Y 0 = Some (tshift T p 0) -> 
-  get_typ_aux e' Y 0 = Some (tshift (tshift T 1 (X-p)) p 0).
+  insert_kind X e e' -> forall Y T, 
+  get_typ e Y = Some T -> 
+  get_typ e' Y = Some (tshift T 1 X).
 Proof.
-induction 1; simpl get_typ_aux; intros Y p' T0 A. 
-- replace (0-p') with 0 by omega.
-  replace 0 with (0+0) at 4 by omega.
-  rewrite (tshift_commut T0 1 p' 0 0).
-  replace (0-1+0) with 0 by omega.
-  now apply get_typ_aux_shift.
-- destruct Y; eauto.
-  rewrite tshift_ident in *.
+  induction 1; simpl; intros ? ? A; destruct_match; eauto.
   inv A.
-  f_equal.
-  replace (n-p') with (n-p'+0) by omega.
-  rewrite <- tshift_commut . do 2 f_equal. auto.
-- assert (exists T', (tshift T0 p' 0) = tshift T' 1 0 /\ get_typ_aux e Y 0 = Some (tshift T' (p'-1) 0)). admit.
-  destruct H0 as [T' [B C]]. subst.
-  specialize (IHinsert_kind _ _ _ C).
-  apply get_typ_aux_shift in IHinsert_kind.
-  rewrite IHinsert_kind.
-  f_equal.
-  rewrite <- tshift_plus1.
-  destruct p'.
-  + simpl. 
-    rewrite tshift_ident.
-    replace (S n) with (n+1) by omega. 
-    simpl in *.
-  admit.
-+ admit.
-Qed.  
-Arguments get_typ / _ _.
+  erewrite IHinsert_kind; eauto. 
+  now rewrite tshift_commut_simpl.
+Qed.
 
 (** *** Préservation du [typing] par [insert_kind] *)
 
@@ -138,19 +116,12 @@ Lemma insert_kind_typing X e e' t T :
 Proof.
   intros.
   revert H. revert X e'.
-  induction H0; intros.
-  - simpl in *.
-    setoid_rewrite <- tshift_ident with (p:=0) in H.
-    pose proof (get_type_insert_some H1 H).
-    rewrite <- tshift_commut_simpl in H2.
-    rewrite tshift_ident in H2.
-    apply (insert_kind_wf_env H1) in H0.
-    eauto.
-  - simpl. eauto.
-  - simpl. eauto.
-  - simpl. eauto.
-  - simpl in *. 
-    pose proof (insert_kind_kinding H1 H).
+  induction H0; simpl; intros.
+  - eauto using get_type_insert_some, insert_kind_wf_env.
+  - eauto.
+  - eauto.
+  - eauto.
+  - pose proof (insert_kind_kinding H1 H).
     specialize (IHtyping X e' H1).
     rewrite tsubst_tshift_swapN.
     + eauto.
@@ -176,11 +147,13 @@ Proof.
 Qed.
 
 Lemma kinding_remove e U p x : kinding e U p -> kinding (remove_var e x) U p.
-admit.
+Proof.
+  admit.
 Qed.
 
 Lemma kinding_remove_impl e x U p : kinding (remove_var e x) U p -> kinding e U p.
-admit.
+Proof.
+  admit.
 Qed.
 
 (** Cas particulier : Weakening par terme préserve [kinding] *)
@@ -191,31 +164,35 @@ Proof.
   apply kinding_remove_impl.
 Qed.
 
-
 (** Relation entre [remove_var] et [get_typ] *)
 
 (** Les variables de terme "avant" la variable enlevée restent en place celles "après" sont décalées vers la gauche. *)
 
 Lemma rem_var_less x y T e : get_typ e y = Some T -> y < x -> get_typ (remove_var e x) y = Some T.
-admit.
+Proof.
+  admit.
 Qed.
 
 Lemma rem_var_more x y T e : get_typ e y = Some T -> y > x -> get_typ (remove_var e x) (y-1) = Some T.
-admit.
+Proof.
+  admit.
 Qed.
 
 Lemma rem_var_more_conv e x y T : get_typ (remove_var e x) y = Some T -> x <= y -> get_typ e (S y) = Some T.
-admit.
+Proof.
+  admit.
 Qed.
 
 Lemma rem_var_less_conv e x y T : get_typ (remove_var e x) y = Some T -> x > y -> get_typ e y = Some T.
-admit.
+Proof.
+  admit.
 Qed.
 
 (** *** Relation entre [remove_var] et [wf_env] *)
 
 Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
-admit.
+Proof.
+  admit.
 Qed.
 
 (** ** [typing] préservé par substitution *)
@@ -249,7 +226,8 @@ Proof.
     apply IHtyping; auto. 
     + setoid_rewrite <- tshift_ident with (p:=0) in H1.
       rewrite tshift_plus1.
-      now apply get_typ_aux_shift.
+      rewrite H1.
+      eauto.
     + eapply insert_kind_typing; eauto.    
   - simpl in *.
     apply kinding_remove with (x:=x) in H0.
@@ -266,7 +244,6 @@ Proof.
   contradict A.
   now rewrite <- get_kind_remove_var_noop.
 Qed.
-
 
 Lemma remove_var_implies_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
 Proof.
@@ -303,7 +280,7 @@ Qed.
 
 Lemma get_typ_kinding_general e : 
   forall x T m, 
-  get_typ_aux e x 0 = Some (tshift T m 0) -> 
+  get_typ e x = Some (tshift T m 0) -> 
   wf_env e -> 
   exists p, kinding e (tshift T m 0) p.
 Proof.
@@ -312,10 +289,7 @@ induction e as [|[U|q]]; intros x T m A B.
 - destruct x.
   + destruct B.
     inv A.
-    rewrite tshift_ident in H2.
-    subst.
     apply wf_typ_impl_kinding in H as [? ?].
-    rewrite tshift_ident.
     eauto using kinding_remove_impl1.
   + simpl in *.
     destruct B as [B1 B2].
@@ -323,14 +297,14 @@ induction e as [|[U|q]]; intros x T m A B.
     exists k.
     now apply kinding_remove_impl1.
 - simpl in *.
-  destruct (get_typ_aux_unshift A) as (T' & D & C).
-  setoid_rewrite <- tshift_ident with (p:=0) in C.
-  pose proof (IHe _ _ _ C B) as [p E].
-  subst.
-  exists p.
-  rewrite D.
-  rewrite tshift_ident in *. 
-  now apply insert_kind_kinding with (e:=e) (T:=T').
+  destruct (get_typ e x) as [U|] eqn:K.
+  + specialize (IHe x U 0).
+    rewrite tshift_ident in IHe.
+    pose proof (IHe K B) as [p E].
+    inv A.
+    exists p.
+    now eapply insert_kind_kinding.
+  + discriminate.
 Qed.
 
 (** ** Préservation du [kinding] par subsitution *)
@@ -351,16 +325,15 @@ intros A B C. revert A B. revert e X U kU. dependent induction C ; intros e0 X0 
       cut (get_kind e0 X = Some p); eauto.
       erewrite get_kind_insert_shift with (e':=e) (X:=X0);
       simpl; eauto.
-    * subst. 
-      assert (p = kU) by congruence. 
+    * assert (p = kU) by congruence. 
       subst.
       eauto.
   + cut (get_kind e0 X = Some p); eauto. 
     erewrite get_kind_insert_shift with (e':=e) (X:=X0);
     simpl; eauto.
-- simpl in *. eauto.
+- simpl in *. 
+  eauto.
 - simpl in *.
   constructor.
   apply (IHC (etvar q::e0) (S X0) (tshift U' 1 0) kU (icons _ A) B (insert_kind_kinding (inil e0 q) C')).
 Qed.
-
