@@ -37,16 +37,13 @@ Proof.
   eauto.
 Qed.
 
-Lemma insert_kind_wf_typ n e e' T : insert_kind n e e' -> wf_typ e T -> wf_typ e' (tshift T 1 n).
+Lemma insert_kind_wf_typ T : forall n e e', insert_kind n e e' -> wf_typ e T -> wf_typ e' (tshift T 1 n).
 Proof.
-  revert n e e'.
   induction T;
   intros n' e e' A B;
   simpl in *.
-  - contradict B.
-    erewrite get_kind_insert_shift; eauto.
-  - destruct B as [B C]. 
-    split; eauto.
+  - now rewrite (get_kind_insert_shift _ A) in B.
+  - destruct B; eauto.
   - apply (IHT (1+n') (etvar n::e) _ (icons _ A) B).
 Qed.
 
@@ -77,15 +74,15 @@ Lemma insert_kind_kinding X e e' T p:
 Proof.
   revert p X e e'.
   induction T; intros p X e e' D E.
-  - inversion E. subst.
-    refine (kvar _ H1 _).
+  - inv E.
+    econstructor; eauto.
     + erewrite <- get_kind_insert_shift; eauto.
     + eapply insert_kind_wf_env; eauto. 
-  - inversion E. subst.
-    simpl.
-    refine (karrow _ _); eauto.
+  - inv E.
+    simpl. 
+    eauto.
   - apply (icons n) in D.
-    inversion E. subst.
+    inv E.
     refine (kall _).
     eapply IHT; eauto.
 Qed.
@@ -117,11 +114,9 @@ Proof.
   - eauto.
   - eauto.
   - eauto.
-  - pose proof (insert_kind_kinding H1 H).
-    specialize (IHtyping X e' H1).
-    rewrite tsubst_tshift_swapN.
-    + eauto.
-    + omega.
+  - rewrite tsubst_tshift_swapN by omega.
+    pose proof (insert_kind_kinding H1 H).
+    eauto.
 Qed.
 
 (** ** Suppression d'une variable de terme de l'environnement. *)
@@ -199,26 +194,26 @@ Lemma subst_preserves_typing :
   typing (remove_var e x) u Tu -> get_typ e x = Some Tu ->
   typing (remove_var e x) (subst t u x) Tt.
 Proof.
-  intros. revert H1 H0. revert x u Tu. induction H; simpl in *; intros. 
-  - apply remove_var_preserve_wf_env with (x:=x0) in H0.
-    destruct (le_dec x0 x); 
-    [ destruct (le_lt_eq_dec x0 x _) | ]. 
-    + constructor; auto.     
+  intros e x t u Tt Tu A.
+  revert x u Tu. 
+  induction A; simpl in *; intros x' u' Tu B C. 
+  - apply remove_var_preserve_wf_env with (x:=x') in H0.
+    destruct_match; [ destruct_match |].
+    + constructor; auto.
       now apply rem_var_more.
-    + subst. 
-      congruence.
+    + congruence.
     + constructor; auto.
       apply rem_var_less; [assumption | omega].
-  - apply typing_weak1 with (U:=T) in H0.
-    specialize (IHtyping (S x) (shift u 1 0) Tu).
+  - apply typing_weak1 with (U:=T) in B.
+    specialize (IHA (S x') (shift u' 1 0) Tu).
     eauto.
   - eauto.
-  - specialize (IHtyping x (tshift_in_term u 1 0) (tshift Tu 1 0)).
-    rewrite H1 in IHtyping.
+  - specialize (IHA x' (tshift_in_term u' 1 0) (tshift Tu 1 0)).
+    rewrite C in IHA.
     constructor. 
-    apply IHtyping; auto.
+    apply IHA; auto.
     eapply insert_kind_typing; eauto.    
-  - apply kinding_remove with (x:=x) in H0.
+  - apply kinding_remove with (x:=x') in H.
     apply rtapp with (p:=p); eauto.
 Qed.
 
@@ -241,7 +236,7 @@ Lemma typing_weakening_var_ind :
 Proof.
   intros e x t T A B. revert A. dependent induction B; intros; simpl in *; eauto.
   - constructor; auto.
-    destruct (le_dec x x0).
+    destruct_match.
     + apply rem_var_more_conv with (x:=x); auto.
     + apply rem_var_less_conv with (x:=x); auto; omega.
   - constructor.
@@ -301,15 +296,14 @@ Proof.
 intros A B C. revert A B. revert e X U kU. dependent induction C ; intros e0 X0 U' kU A B C'.
 - simpl.
   assert (wf_env e0) by eauto using insert_kind_wf_env_conv. 
-  destruct (le_dec X0 X).
-  + destruct (le_lt_eq_dec _ _ _).
-    * destruct X; try omega.
-      cut (get_kind e0 X = Some p); eauto.
-      erewrite get_kind_insert_shift with (e':=e) (X:=X0);
-      simpl; eauto.
-    * assert (p = kU) by congruence. 
-      subst.
-      eauto.
+  destruct_match ; [ destruct_match | ].
+  + destruct X; try omega.
+    cut (get_kind e0 X = Some p); eauto.
+    erewrite get_kind_insert_shift with (e':=e) (X:=X0);
+    simpl; eauto.
+  + assert (p = kU) by congruence. 
+    subst.
+    eauto.
   + cut (get_kind e0 X = Some p); eauto. 
     erewrite get_kind_insert_shift with (e':=e) (X:=X0);
     simpl; eauto.
