@@ -282,7 +282,8 @@ Hint Constructors kinding typing.
 (** Well-formedness de [T] implique [kinding] de [T]. *)
 
 Lemma wf_typ_impl_kinding e T : wf_typ e T -> exists p, kinding e T p.
-admit.
+Proof.
+  admit.
 Qed.
 
 (** Le typage implique la well-formedness. *)
@@ -296,7 +297,8 @@ Qed.
 (** Effet d'un weakening sur un typing : pareil que de rajouter un binder au fond d'un contexte *)
 
 Lemma typing_weak1 e t T U : typing e t T -> typing ((evar U)::e) (shift t 1 0) T.
-admit.
+Proof.
+ admit.
 Qed.
 
 (** ** Cumulativité : Dans [e], si [T] as pour kind [p] et [p <= q], alors [T] a pour kind [q] *)
