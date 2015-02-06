@@ -47,6 +47,11 @@ Proof.
   - apply (IHT (1+n') (etvar n::e) _ (icons _ A) B).
 Qed.
 
+Lemma insert_kind_wf_typ_conv T : forall n e e', insert_kind n e e' -> wf_typ e' (tshift T 1 n) -> wf_typ e T.
+Proof.
+  admit.
+Qed.
+
 (** *** Relation entre [insert_kind] et [wf_env] *)
 
 (** La well-formedness est fermée par insertion/suppression. *)
@@ -130,29 +135,64 @@ Fixpoint remove_var e x := match e with
   end
 end.
 
-(** *** [remove_var] est ignoré par [kinding] et [get_kind] *)
+(** *** [remove_var] est ignoré par [get_kind] *)
 
 Lemma get_kind_remove_var_noop e : forall x y, get_kind e y = get_kind (remove_var e x) y.
 Proof.
   induction e as [|[|]]; intros; simpl in *; auto; [destruct x | destruct y]; eauto.
 Qed.
 
+
+
+(** ** Préservations de [typing]/[kinding] par weakening *)
+
+
+Lemma remove_var_implies_wf_typ T : forall e x, wf_typ e T -> wf_typ (remove_var e x) T.
+Proof.
+  induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
+  - contradict A.
+    now rewrite <- get_kind_remove_var_noop in H.
+  - change (wf_typ (remove_var (etvar n::e) X) T). auto.
+Qed.
+
+Lemma remove_var_preserves_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
+Proof.
+  induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
+  contradict A.
+  now rewrite <- get_kind_remove_var_noop.
+Qed.
+
+
+
+(** *** Relation entre [remove_var] et [wf_env] *)
+
+Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
+Proof.
+  admit.
+Qed.
+
+(** *** [remove_var] est ignoré par [kinding] *)
+
 Lemma kinding_remove e U p x : kinding e U p -> kinding (remove_var e x) U p.
 Proof.
   admit.
 Qed.
 
-Lemma kinding_remove_impl e x U p : kinding (remove_var e x) U p -> kinding e U p.
+Lemma kinding_remove_impl e x U p : wf_env e -> kinding (remove_var e x) U p -> kinding e U p.
 Proof.
   admit.
 Qed.
 
 (** Cas particulier : Weakening par terme préserve [kinding] *)
    
-Lemma kinding_remove_impl1 e U p T : kinding e U p -> kinding (evar T::e) U p.
+Lemma kinding_remove_impl1 e U p T : wf_typ e T -> kinding e U p -> kinding (evar T::e) U p.
 Proof.
-  replace e with (remove_var (evar T::e) 0) at 1 by auto.
-  apply kinding_remove_impl.
+  intros A B.
+  eapply kinding_remove_impl with (x:=0).
+  - simpl in *.
+    split; auto.
+    now apply kinding_impl_wf_env in B. 
+  - eauto.
 Qed.
 
 (** Relation entre [remove_var] et [get_typ] *)
@@ -179,30 +219,6 @@ Proof.
   admit.
 Qed.
 
-(** *** Relation entre [remove_var] et [wf_env] *)
-
-Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
-Proof.
-  admit.
-Qed.
-
-(** ** Préservations de [typing]/[kinding] par weakening *)
-
-
-Lemma remove_var_implies_wf_typ T : forall e x, wf_typ e T -> wf_typ (remove_var e x) T.
-Proof.
-  induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
-  - contradict A.
-    now rewrite <- get_kind_remove_var_noop in H.
-  - change (wf_typ (remove_var (etvar n::e) X) T). auto.
-Qed.
-
-Lemma remove_var_preserves_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
-Proof.
-  induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
-  contradict A.
-  now rewrite <- get_kind_remove_var_noop.
-Qed.
 
 
 (** [typing] maintenu par weakening *)
@@ -224,7 +240,7 @@ Proof.
     + split; auto.
       apply typing_impl_wf_env in B as [? ?]. 
       now apply remove_var_preserves_wf_typ with (x:=x).
-  - apply kinding_remove_impl in H.
+  - apply (kinding_remove_impl A) in H.
     eapply rtapp with (p:=p); auto. 
 Qed.
 
@@ -284,6 +300,7 @@ induction e as [|[U|q]]; intros x T m A B.
   + destruct B.
     inv A.
     apply (wf_typ_impl_kinding H0) in H as [? ?].
+    pose proof (kinding_impl_wf_typ H) as H'.
     eauto using kinding_remove_impl1.
   + simpl in *.
     destruct B as [B1 B2].

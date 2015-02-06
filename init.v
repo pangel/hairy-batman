@@ -278,6 +278,15 @@ Hint Constructors kinding typing.
 
 (** *** Lemmes simples sur [kinding] et [typing] *)
 
+Lemma kinding_impl_wf_typ e T p : kinding e T p -> wf_typ e T.
+Proof.
+  induction 1; simpl; auto; congruence.
+Qed.
+
+Lemma kinding_impl_wf_env e T p : kinding e T p -> wf_env e.
+Proof.
+  induction 1; auto.
+Qed.
 
 (** Well-formedness de [T] implique [kinding] de [T]. *)
 
