@@ -19,7 +19,7 @@ Proof.
   - destruct IHtyping as [p A].
     apply typing_impl_wf_env in H.
     destruct H.
-    apply wf_typ_impl_kinding in H as [q H].
+    apply (wf_typ_impl_kinding H0) in H as [q H].
     apply kinding_remove with (x:=0) in A. 
     eauto.
   - destruct IHtyping1 as [p A].

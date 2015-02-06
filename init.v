@@ -281,7 +281,7 @@ Hint Constructors kinding typing.
 
 (** Well-formedness de [T] implique [kinding] de [T]. *)
 
-Lemma wf_typ_impl_kinding e T : wf_typ e T -> exists p, kinding e T p.
+Lemma wf_typ_impl_kinding T : forall e, wf_env e -> wf_typ e T -> exists p, kinding e T p.
 Proof.
   admit.
 Qed.

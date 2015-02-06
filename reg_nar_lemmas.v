@@ -204,8 +204,8 @@ Proof.
     + congruence.
     + constructor; auto.
       apply rem_var_less; [assumption | omega].
-  - apply typing_weak1 with (U:=T) in B.
-    specialize (IHA (S x') (shift u' 1 0) Tu).
+  - specialize (IHA (S x') (shift u' 1 0) Tu).
+    apply typing_weak1 with (U:=T) in B.
     eauto.
   - eauto.
   - specialize (IHA x' (tshift_in_term u' 1 0) (tshift Tu 1 0)).
@@ -266,7 +266,7 @@ induction e as [|[U|q]]; intros x T m A B.
 - destruct x.
   + destruct B.
     inv A.
-    apply wf_typ_impl_kinding in H as [? ?].
+    apply (wf_typ_impl_kinding H0) in H as [? ?].
     eauto using kinding_remove_impl1.
   + simpl in *.
     destruct B as [B1 B2].
