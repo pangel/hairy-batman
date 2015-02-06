@@ -17,10 +17,10 @@ Proof.
     setoid_rewrite <- tshift_ident with (p:=0) in H. 
     eapply get_typ_kinding_general with (m:=0); eauto.
   - destruct IHtyping as [p A].
-    apply typing_impl_wf_env in H.
+    apply typing_implies_wf_env in H.
     destruct H.
-    apply (wf_typ_impl_kinding H0) in H as [q H].
-    apply kinding_remove with (x:=0) in A. 
+    apply (wf_implies_kinding H0) in H as [q H].
+    apply remove_var_preserves_kinding with (x:=0) in A. 
     eauto.
   - destruct IHtyping1 as [p A].
     inv A.

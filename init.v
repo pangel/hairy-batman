@@ -278,34 +278,33 @@ Hint Constructors kinding typing.
 
 (** *** Lemmes simples sur [kinding] et [typing] *)
 
-Lemma kinding_impl_wf_typ e T p : kinding e T p -> wf_typ e T.
+Lemma kinding_implies_wf_typ e T p : kinding e T p -> wf_typ e T.
 Proof.
   induction 1; simpl; auto; congruence.
 Qed.
 
-Lemma kinding_impl_wf_env e T p : kinding e T p -> wf_env e.
+Lemma kinding_implies_wf_env e T p : kinding e T p -> wf_env e.
 Proof.
   induction 1; auto.
 Qed.
 
-(** Well-formedness de [T] implique [kinding] de [T]. *)
+(** Well-formedness de [T] et [e] implique [kinding] de [T] dans [e]. *)
 
-Lemma wf_typ_impl_kinding T : forall e, wf_env e -> wf_typ e T -> exists p, kinding e T p.
+Lemma wf_implies_kinding T : forall e, wf_env e -> wf_typ e T -> exists p, kinding e T p.
 Proof.
   admit.
 Qed.
 
 (** Le typage implique la well-formedness. *)
 
-Lemma typing_impl_wf_env e t T : typing e t T -> wf_env e.
+Lemma typing_implies_wf_env e t T : typing e t T -> wf_env e.
 Proof.
   induction 1; simpl in *; auto; tauto.
 Qed.
 
 
-(** Effet d'un weakening sur un typing : pareil que de rajouter un binder au fond d'un contexte *)
-  
-Lemma typing_impl_wf_typ T e t U : typing (evar T::e) t U -> wf_typ e T.
+(** Cas utile : si [e] type un terme, la tête de [e] est bien formée *)
+Lemma typing_implies_wf_typ T e t U : typing (evar T::e) t U -> wf_typ e T.
 Proof.
   admit.
 Qed.

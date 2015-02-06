@@ -142,12 +142,9 @@ Proof.
   induction e as [|[|]]; intros; simpl in *; auto; [destruct x | destruct y]; eauto.
 Qed.
 
-
-
 (** ** Préservations de [typing]/[kinding] par weakening *)
 
-
-Lemma remove_var_implies_wf_typ T : forall e x, wf_typ e T -> wf_typ (remove_var e x) T.
+Lemma remove_var_preserves_wf_typ T : forall e x, wf_typ e T -> wf_typ (remove_var e x) T.
 Proof.
   induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
   - contradict A.
@@ -155,7 +152,7 @@ Proof.
   - change (wf_typ (remove_var (etvar n::e) X) T). auto.
 Qed.
 
-Lemma remove_var_preserves_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
+Lemma remove_var_implies_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
 Proof.
   induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
   contradict A.
@@ -173,12 +170,12 @@ Qed.
 
 (** *** [remove_var] est ignoré par [kinding] *)
 
-Lemma kinding_remove e U p x : kinding e U p -> kinding (remove_var e x) U p.
+Lemma remove_var_preserves_kinding e U p x : kinding e U p -> kinding (remove_var e x) U p.
 Proof.
   admit.
 Qed.
 
-Lemma kinding_remove_impl e x U p : wf_env e -> kinding (remove_var e x) U p -> kinding e U p.
+Lemma remove_var_implies_kinding e x U p : wf_env e -> kinding (remove_var e x) U p -> kinding e U p.
 Proof.
   admit.
 Qed.
@@ -188,10 +185,10 @@ Qed.
 Lemma kinding_remove_impl1 e U p T : wf_typ e T -> kinding e U p -> kinding (evar T::e) U p.
 Proof.
   intros A B.
-  eapply kinding_remove_impl with (x:=0).
+  eapply remove_var_implies_kinding with (x:=0).
   - simpl in *.
     split; auto.
-    now apply kinding_impl_wf_env in B. 
+    now apply kinding_implies_wf_env in B. 
   - eauto.
 Qed.
 
@@ -238,9 +235,9 @@ Proof.
     apply IHB.
     + auto.
     + split; auto.
-      apply typing_impl_wf_env in B as [? ?]. 
-      now apply remove_var_preserves_wf_typ with (x:=x).
-  - apply (kinding_remove_impl A) in H.
+      apply typing_implies_wf_env in B as [? ?]. 
+      now apply remove_var_implies_wf_typ with (x:=x).
+  - apply (remove_var_implies_kinding A) in H.
     eapply rtapp with (p:=p); auto. 
 Qed.
 
@@ -271,16 +268,16 @@ Proof.
       eapply IHA; auto.
       eapply typing_weakening_var_ind; auto.
       split.
-      * apply remove_var_implies_wf_typ.
-        eapply typing_impl_wf_typ; eauto.
-      * eapply typing_impl_wf_env; eauto.
+      * apply remove_var_preserves_wf_typ.
+        eapply typing_implies_wf_typ; eauto.
+      * eapply typing_implies_wf_env; eauto.
   - eauto.
   - econstructor.
     specialize (IHA x' (tshift_in_term u' 1 0) (tshift Tu  1 0)).
     rewrite C in IHA. 
     eapply IHA; auto.
     now apply insert_kind_typing with (e:=(remove_var e x')).
-  - eauto using kinding_remove. 
+  - eauto using remove_var_preserves_kinding. 
 Qed.
 
 (** Well-formedness maintenue par weakening *)
@@ -299,8 +296,8 @@ induction e as [|[U|q]]; intros x T m A B.
 - destruct x.
   + destruct B.
     inv A.
-    apply (wf_typ_impl_kinding H0) in H as [? ?].
-    pose proof (kinding_impl_wf_typ H) as H'.
+    apply (wf_implies_kinding H0) in H as [? ?].
+    pose proof (kinding_implies_wf_typ H) as H'.
     eauto using kinding_remove_impl1.
   + simpl in *.
     destruct B as [B1 B2].
