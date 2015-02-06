@@ -186,40 +186,16 @@ Proof.
   admit.
 Qed.
 
-(** ** [typing] préservé par substitution *)
-
-Lemma subst_preserves_typing :
-  forall e x t u Tt Tu,
-  typing e t Tt ->
-  typing (remove_var e x) u Tu -> get_typ e x = Some Tu ->
-  typing (remove_var e x) (subst t u x) Tt.
-Proof.
-  intros e x t u Tt Tu A.
-  revert x u Tu. 
-  induction A; simpl in *; intros x' u' Tu B C. 
-  - apply remove_var_preserve_wf_env with (x:=x') in H0.
-    destruct_match; [ destruct_match |].
-    + constructor; auto.
-      now apply rem_var_more.
-    + congruence.
-    + constructor; auto.
-      apply rem_var_less; [assumption | omega].
-  - specialize (IHA (S x') (shift u' 1 0) Tu).
-    apply typing_weak1 with (U:=T) in B.
-    eauto.
-  - eauto.
-  - specialize (IHA x' (tshift_in_term u' 1 0) (tshift Tu 1 0)).
-    rewrite C in IHA.
-    constructor. 
-    apply IHA; auto.
-    eapply insert_kind_typing; eauto.    
-  - apply kinding_remove with (x:=x') in H.
-    apply rtapp with (p:=p); eauto.
-Qed.
-
 (** ** Préservations de [typing]/[kinding] par weakening *)
 
-(** Well-formedness maintenue par weakening *)
+
+Lemma remove_var_implies_wf_typ T : forall e x, wf_typ e T -> wf_typ (remove_var e x) T.
+Proof.
+  induction T as [y | | ]; intros e X A; simpl in *; intuition; eauto.
+  - contradict A.
+    now rewrite <- get_kind_remove_var_noop in H.
+  - change (wf_typ (remove_var (etvar n::e) X) T). auto.
+Qed.
 
 Lemma remove_var_preserves_wf_typ T : forall e x, wf_typ (remove_var e x) T -> wf_typ e T.
 Proof.
@@ -227,6 +203,7 @@ Proof.
   contradict A.
   now rewrite <- get_kind_remove_var_noop.
 Qed.
+
 
 (** [typing] maintenu par weakening *)
 
@@ -251,6 +228,46 @@ Proof.
     eapply rtapp with (p:=p); auto. 
 Qed.
 
+
+(** ** [typing] préservé par substitution *)
+
+Lemma subst_preserves_typing :
+  forall e x t u Tt Tu,
+  typing e t Tt ->
+  typing (remove_var e x) u Tu -> get_typ e x = Some Tu ->
+  typing (remove_var e x) (subst t u x) Tt.
+Proof.
+  intros e x t u Tt Tu A.
+  revert x u Tu.
+  induction A; simpl in *; intros x' u' Tu B C. 
+  - apply remove_var_preserve_wf_env with (x:=x') in H0.
+    destruct_match; [ destruct_match |].
+    + constructor; auto.
+      now apply rem_var_more.
+    + congruence.
+    + constructor; auto.
+      apply rem_var_less; [assumption | omega].
+  - specialize (IHA (S x') (shift u' 1 0) Tu).
+    destruct_match.
+    + eauto.
+    + econstructor.
+      inv Heqn.
+      eapply IHA; auto.
+      eapply typing_weakening_var_ind; auto.
+      split.
+      * apply remove_var_implies_wf_typ.
+        eapply typing_impl_wf_typ; eauto.
+      * eapply typing_impl_wf_env; eauto.
+  - eauto.
+  - econstructor.
+    specialize (IHA x' (tshift_in_term u' 1 0) (tshift Tu  1 0)).
+    rewrite C in IHA. 
+    eapply IHA; auto.
+    now apply insert_kind_typing with (e:=(remove_var e x')).
+  - eauto using kinding_remove. 
+Qed.
+
+(** Well-formedness maintenue par weakening *)
 
 (** Version générale de la préservation du kinding dans un environnement affaibli
     par des variables de terme et de type *)
