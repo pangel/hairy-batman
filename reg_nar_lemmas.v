@@ -196,22 +196,26 @@ Qed.
 
 (** Les variables de terme "avant" la variable enlevée restent en place celles "après" sont décalées vers la gauche. *)
 
-Lemma rem_var_less x y T e : get_typ e y = Some T -> y < x -> get_typ (remove_var e x) y = Some T.
+Lemma rem_var_less e : 
+  forall x y T, get_typ e y = Some T -> y < x -> get_typ (remove_var e x) y = Some T.
 Proof.
   admit.
 Qed.
 
-Lemma rem_var_more x y T e : get_typ e y = Some T -> y > x -> get_typ (remove_var e x) (y-1) = Some T.
+Lemma rem_var_more e : 
+  forall x y T, get_typ e y = Some T -> y > x -> get_typ (remove_var e x) (y-1) = Some T.
 Proof.
   admit.
 Qed.
 
-Lemma rem_var_more_conv e x y T : get_typ (remove_var e x) y = Some T -> x <= y -> get_typ e (S y) = Some T.
+Lemma rem_var_more_conv e : 
+  forall x y T, get_typ (remove_var e x) y = Some T -> x <= y -> get_typ e (S y) = Some T.
 Proof.
   admit.
 Qed.
 
-Lemma rem_var_less_conv e x y T : get_typ (remove_var e x) y = Some T -> x > y -> get_typ e y = Some T.
+Lemma rem_var_less_conv e : 
+  forall x y T, get_typ (remove_var e x) y = Some T -> x > y -> get_typ e y = Some T.
 Proof.
   admit.
 Qed.

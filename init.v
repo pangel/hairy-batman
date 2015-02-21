@@ -180,7 +180,7 @@ Fixpoint subst t u x :=
       match le_dec x m with
       | left prf => (* x <= m *)
         if le_lt_eq_dec x m prf 
-        then var (m-1) (* x < m *)
+        then var (pred m) (* x < m *)
         else u (* x = m *)
       | _ => var m (* x > m *)
       end
