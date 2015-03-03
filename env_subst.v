@@ -1,4 +1,4 @@
-Require Import reg_nar_lemmas.
+Require Import lemmas_regularity.
 
 (** Les variables avec les noms suivants prennent le type correspondant par défaut : *)
 

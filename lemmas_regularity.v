@@ -1,6 +1,6 @@
 Require Export shift_lemmas.
 
-(** * Lemmes utiles pour prouver [regularity] et [narrowing] *)
+(** * Lemmes utiles pour prouver [narrowing] *)
 
 (** Les variables avec les noms suivants prennent le type correspondant par défaut : *)
 
@@ -203,7 +203,7 @@ Proof.
 Qed.
 
 Lemma rem_var_more e : 
-  forall x y T, get_typ e y = Some T -> y > x -> get_typ (remove_var e x) (y-1) = Some T.
+  forall x y T, get_typ e y = Some T -> y > x -> get_typ (remove_var e x) (pred y) = Some T.
 Proof.
   admit.
 Qed.
