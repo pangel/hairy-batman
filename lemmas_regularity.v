@@ -196,26 +196,14 @@ Qed.
 
 (** Les variables de terme "avant" la variable enlevée restent en place celles "après" sont décalées vers la gauche. *)
 
-Lemma rem_var_less e : 
-  forall x y T, get_typ e y = Some T -> y < x -> get_typ (remove_var e x) y = Some T.
+Lemma rem_var_less e :
+  forall x y, y < x -> get_typ e y = get_typ (remove_var e x) y.
 Proof.
   admit.
 Qed.
 
-Lemma rem_var_more e : 
-  forall x y T, get_typ e y = Some T -> y > x -> get_typ (remove_var e x) (pred y) = Some T.
-Proof.
-  admit.
-Qed.
-
-Lemma rem_var_more_conv e : 
-  forall x y T, get_typ (remove_var e x) y = Some T -> x <= y -> get_typ e (S y) = Some T.
-Proof.
-  admit.
-Qed.
-
-Lemma rem_var_less_conv e : 
-  forall x y T, get_typ (remove_var e x) y = Some T -> x > y -> get_typ e y = Some T.
+Lemma rem_var_more e :
+  forall x y, y >= x -> get_typ e (S y) = get_typ (remove_var e x) y.
 Proof.
   admit.
 Qed.
@@ -230,9 +218,9 @@ Lemma typing_weakening_var_ind :
 Proof.
   intros e x t T A B. revert A. dependent induction B; intros; simpl in *; eauto.
   - constructor; auto.
-    destruct_match.
-    + apply rem_var_more_conv with (x:=x); auto.
-    + apply rem_var_less_conv with (x:=x); auto; omega.
+    destruct_match; rewrite <- H.
+    + apply rem_var_more; omega.
+    + apply rem_var_less; omega.
   - constructor.
     specialize (IHB (evar T::e) (S x)). 
     simpl in *.
@@ -260,10 +248,13 @@ Proof.
   - apply remove_var_preserve_wf_env with (x:=x') in H0.
     destruct_match; [ destruct_match |].
     + constructor; auto.
-      now apply rem_var_more.
+      rewrite <- H; symmetry.
+      destruct x; try omega; simpl.
+      eapply rem_var_more; omega. 
     + congruence.
     + constructor; auto.
-      apply rem_var_less; [assumption | omega].
+      rewrite <- H; symmetry.
+      apply rem_var_less; omega.
   - specialize (IHA (S x') (shift u' 1 0) Tu).
     destruct_match.
     + eauto.
