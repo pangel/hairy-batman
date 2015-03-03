@@ -49,7 +49,13 @@ Qed.
 
 Lemma insert_kind_wf_typ_conv T : forall n e e', insert_kind n e e' -> wf_typ e' (tshift T 1 n) -> wf_typ e T.
 Proof.
-  admit.
+  induction T;
+  intros n' e e' A B;
+  simpl in *.
+  - change (if le_dec n' x then S x else x) with (shift_var x 1 n') in B.
+    erewrite get_kind_insert_shift; eauto.
+  - destruct B; eauto.
+  - refine (IHT (1+n') (etvar n::e) _ (icons _ A) _); eauto.
 Qed.
 
 (** *** Relation entre [insert_kind] et [wf_env] *)

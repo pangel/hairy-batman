@@ -16,5 +16,10 @@ Lemma narrowing e t T :
   q <= p -> 
   typing (replace_kind e n q) t T.
 Proof.
-admit.
+  intros H p q H1.
+  induction H; econstructor; eauto.
+  - now rewrite <- replace_kind_noop.
+  - now apply replace_kind_preserves_wf_env.
+  - now apply (IHtyping (S n)).
+  - eapply replace_kind_preserves_kinding; eauto.
 Qed.
