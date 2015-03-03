@@ -27,3 +27,14 @@ http://homepage.divms.uiowa.edu/~astump/papers/pstt-2010.pdf
 Objectif
 ---------------------
 https://www.youtube.com/watch?v=KgxEPBFuofM (merci Joseph)
+
+### TODO : `admits`
+
+1. `init.v`, simple
+2. `lemmas_regularity.v`, simple et moyen je pense
+3. `lemmas_narrowing.v`, ?
+4. `env_subst.v`, probablement dur
+
+### TODO : rapport
+
+:'(
