@@ -10,10 +10,9 @@ Implicit Types
 (e f : env).
 
 Lemma narrowing e t T : 
-  forall n p q,
-  get_kind e n = Some p -> 
   typing e t T -> 
-  q <= p -> 
+  forall p q, q <= p -> 
+  forall n, get_kind e n = Some p ->
   typing (replace_kind e n q) t T.
 Proof.
   intros H p q H1.
