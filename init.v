@@ -292,7 +292,31 @@ Qed.
 
 Lemma wf_implies_kinding T : forall e, wf_env e -> wf_typ e T -> exists p, kinding e T p.
 Proof.
-  admit.
+  induction T;
+  intuition;
+  simpl wf_typ in H0.
+  - destruct (get_kind e x) eqn:N.
+    + exists k. 
+      assert (A : k <= k). 
+      * trivial.
+      * apply (kvar N A H). 
+    + tauto.
+  - destruct H0.
+    specialize (IHT1 e).
+    specialize (IHT2 e).
+    intuition.
+    destruct H2.
+    destruct H4.
+    exists (max x0 x).
+    apply (karrow H3 H2).
+  - assert (W : wf_env (etvar n :: e)).
+    + simpl.
+      tauto.
+    + specialize (IHT (etvar n :: e)).
+      intuition.
+      destruct H2.
+      exists (1 + (max x n)).
+      apply (kall H1).    
 Qed.
 
 (** Le typage implique la well-formedness. *)
@@ -306,7 +330,9 @@ Qed.
 (** Cas utile : si [e] type un terme, la tête de [e] est bien formée *)
 Lemma typing_implies_wf_typ T e t U : typing (evar T::e) t U -> wf_typ e T.
 Proof.
-  admit.
+  intro.
+  apply typing_implies_wf_env with (e := evar T::e) in H.
+  destruct H. auto.
 Qed.
 
 (** ** Cumulativité : Dans [e], si [T] as pour kind [p] et [p <= q], alors [T] a pour kind [q] *)

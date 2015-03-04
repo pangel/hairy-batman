@@ -30,10 +30,9 @@ https://www.youtube.com/watch?v=KgxEPBFuofM (merci Joseph)
 
 ### TODO : `admits`
 
-1. `init.v`, simple
-2. `lemmas_regularity.v`, simple et moyen je pense
-3. `lemmas_narrowing.v`, ?
-4. `env_subst.v`, probablement dur
+1. `lemmas_regularity.v`, simple et moyen je pense
+2. `lemmas_narrowing.v`, ?
+3. `env_subst.v`, probablement dur
 
 ### TODO : rapport
 
