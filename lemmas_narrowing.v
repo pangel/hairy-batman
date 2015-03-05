@@ -50,28 +50,56 @@ Qed.
 
 (* *** [replace_kind] préserves la well-formedness *)
 
+Lemma replace_consistency e n x p q k:
+  get_kind e n = Some p -> get_kind (replace_kind e x k) n = if eq_nat_dec x n then Some k else Some p.
+Proof.
+  revert n x.
+  induction e; try induction a.
+  - simpl in *. auto. 
+  - simpl in *. auto. 
+  - intros.
+    induction n0.
+    + induction x; tauto.
+    + destruct (eq_nat_dec x (S n0)).
+      * rewrite e0. simpl. 
+        simpl in H.
+        apply replace_choice with (m := n0) (q := k) in H.
+        destruct (eq_nat_dec n0 n0); tauto.
+      * induction x; auto.
+        simpl. simpl in H.
+        specialize (IHe n0 x).
+        apply IHe in H.
+        destruct (eq_nat_dec x n0) eqn:?; auto.
+        omega.
+Qed.
+
+Lemma get_kind_exists x : 
+  forall e, (get_kind e x = None -> False) <-> exists p, get_kind e x = Some p.
+Proof.
+  intros. split; destruct (get_kind e x).
+  - exists k. auto.
+  - tauto.
+  - auto. 
+  - intuition. 
+    destruct H. 
+    auto.
+Qed.
+
 Lemma replace_kind_preserves_wf_typ e T n p : 
   wf_typ e T -> wf_typ (replace_kind e n p) T.
 Proof.
   revert e n.
   induction T.
-  - intros. simpl in *.
-    assert (Ek : forall e', (get_kind e' x = None -> False) <-> exists p, get_kind e' x = Some p).
-    + intros. split; destruct (get_kind e' x).
-      * exists k. auto.
-      * tauto.
-      * auto. 
-      * intuition. 
-        destruct H0. 
-        auto.
-    + apply Ek in H. 
-      destruct H.
-      apply Ek.
-      apply replace_choice with (q := p) (m := x) in H.
-      destruct (eq_nat_dec x x); auto.
-      
-      admit.
-      
+  - intros.
+    simpl in *.
+    apply get_kind_exists in H. 
+    destruct H.
+    apply get_kind_exists.
+    apply replace_consistency with (k := p) (x := n) in H.
+    + destruct (eq_nat_dec n x).
+      * exists p. auto.
+      * exists x0. auto.
+    + auto.
   - intros. simpl in *. intuition.
   - intros.
     specialize (IHT (etvar n :: e) (S n0)). 
