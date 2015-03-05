@@ -27,7 +27,25 @@ end.
 Lemma replace_choice e n p q m :
   get_kind e n = Some p -> get_kind (replace_kind e n q) m = if eq_nat_dec n m then Some q else get_kind e m.
 Proof.
-  admit.
+  destruct (eq_nat_dec n m).
+  - rewrite e0.
+    clear e0.
+    revert m.
+    induction e; try induction a.
+    + simpl. auto.
+    + simpl. auto.
+    + induction m.
+      * simpl. auto.
+      * simpl. intuition.
+  - revert n0.
+    revert n m.
+    induction e; try induction a.
+    + simpl. auto.
+    + simpl. auto.
+    + intros.
+      induction n0; induction m; try omega; try tauto.
+      simpl. 
+      intuition.
 Qed.
 
 (* *** [replace_kind] préserves la well-formedness *)
@@ -35,7 +53,30 @@ Qed.
 Lemma replace_kind_preserves_wf_typ e T n p : 
   wf_typ e T -> wf_typ (replace_kind e n p) T.
 Proof.
-  admit.
+  revert e n.
+  induction T.
+  - intros. simpl in *.
+    assert (Ek : forall e', (get_kind e' x = None -> False) <-> exists p, get_kind e' x = Some p).
+    + intros. split; destruct (get_kind e' x).
+      * exists k. auto.
+      * tauto.
+      * auto. 
+      * intuition. 
+        destruct H0. 
+        auto.
+    + apply Ek in H. 
+      destruct H.
+      apply Ek.
+      apply replace_choice with (q := p) (m := x) in H.
+      destruct (eq_nat_dec x x); auto.
+      
+      admit.
+      
+  - intros. simpl in *. intuition.
+  - intros.
+    specialize (IHT (etvar n :: e) (S n0)). 
+    simpl in *. 
+    auto.
 Qed.
 
 (** ** Lemmes directement utilisés par [narrowing] *)
