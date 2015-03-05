@@ -73,7 +73,11 @@ Qed.
 Lemma insert_kind_wf_env_conv X e e' :
   insert_kind X e e' -> wf_env e' -> wf_env e.
 Proof.
-  admit.
+  induction 1; simpl; auto.
+  intros [D E].
+  split.
+  - apply insert_kind_wf_typ_conv with (n := n) (e' := e'); tauto.
+  - tauto.
 Qed.
 
 (** *** Relation entre [insert_kind] et [kinding] *)
@@ -171,19 +175,59 @@ Qed.
 
 Lemma remove_var_preserve_wf_env e x : wf_env e -> wf_env (remove_var e x).
 Proof.
-  admit.
+  intro.
+  revert x.
+  induction e; try induction a.
+  - simpl. 
+    tauto.
+  - induction x.
+    + simpl. 
+      destruct H. 
+      tauto.
+    + simpl.
+      simpl wf_env in H. 
+      destruct H. 
+      split.
+      * apply remove_var_preserves_wf_typ. 
+        tauto.
+      * apply IHe. 
+        tauto.
+  - simpl in *. 
+    apply IHe. 
+    tauto.
 Qed.
 
 (** *** [remove_var] est ignoré par [kinding] *)
 
 Lemma remove_var_preserves_kinding e U p x : kinding e U p -> kinding (remove_var e x) U p.
 Proof.
-  admit.
+  intro.
+  induction H.
+  - assert (get_kind (remove_var e x) X = Some p); 
+    try(rewrite <- H; 
+    symmetry; 
+    apply get_kind_remove_var_noop).
+    apply (kvar H2 H0).
+    apply remove_var_preserve_wf_env.
+    tauto.
+  - apply (karrow IHkinding1 IHkinding2).
+  - simpl remove_var in IHkinding.
+    apply (kall IHkinding).
 Qed.
 
 Lemma remove_var_implies_kinding e x U p : wf_env e -> kinding (remove_var e x) U p -> kinding e U p.
 Proof.
-  admit.
+  intros.
+  dependent induction H0.
+  - assert (get_kind e X = Some p); 
+    try(rewrite <- H2; 
+    apply get_kind_remove_var_noop).
+    apply (kvar H3 H0 H).
+  - specialize (IHkinding1 x e).
+    specialize (IHkinding2 x e).
+    auto.
+  - specialize (IHkinding x (etvar q :: e)).
+    auto.
 Qed.
 
 (** Cas particulier : Weakening par terme préserve [kinding] *)
@@ -205,13 +249,33 @@ Qed.
 Lemma rem_var_less e :
   forall x y, y < x -> get_typ e y = get_typ (remove_var e x) y.
 Proof.
-  admit.
+  induction e; try induction a.
+  - simpl. tauto.
+  - induction x; induction y; try omega; try tauto.
+    simpl. 
+    intuition.
+  - intros.
+    specialize (IHe x y).
+    apply IHe in H.
+    simpl.
+    rewrite H.
+    tauto.
 Qed.
 
 Lemma rem_var_more e :
   forall x y, y >= x -> get_typ e (S y) = get_typ (remove_var e x) y.
 Proof.
-  admit.
+  induction e; try induction a.
+  - simpl. tauto.
+  - induction x; induction y; try omega; try tauto.
+    simpl.
+    intuition.
+  - intros.
+    specialize (IHe x y).
+    apply IHe in H.
+    simpl.
+    rewrite H.
+    tauto.
 Qed.
 
 
