@@ -113,7 +113,18 @@ Qed.
 
 Lemma replace_kind_noop e x n p : get_typ e x = get_typ (replace_kind e n p) x.
 Proof.
-  admit.
+  revert x n.
+  induction e; try induction a.
+  - simpl. auto.
+  - induction x; 
+    simpl; 
+    auto.
+  - induction n0; 
+    simpl;
+    auto.
+    specialize (IHe x n0).
+    rewrite IHe.
+    auto.
 Qed.
 
 (** *** [replace_kind] n'a pas d'effet sur les environnements *)
@@ -121,7 +132,18 @@ Qed.
 Lemma replace_kind_preserves_wf_env e n p : 
   wf_env e -> wf_env (replace_kind e n p).
 Proof.
-  admit.
+  revert n.
+  induction e; try induction a.
+  - simpl; auto.
+  - simpl.
+    intros.
+    destruct H.
+    split; auto.
+    apply replace_kind_preserves_wf_typ.
+    auto.
+  - induction n0; auto.
+    simpl.
+    auto.
 Qed.
 
 (* *** [replace_kind] préserve le kinding si le kind de remplacement est plus petit *)
