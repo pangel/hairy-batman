@@ -244,7 +244,7 @@ Qed.
 
 (** Relation entre [remove_var] et [get_typ] *)
 
-(** Les variables de terme "avant" la variable enlevée restent en place celles "après" sont décalées vers la gauche. *)
+(** Les variables de terme "avant" la variable enlevée restent en place, celles "après" sont décalées vers la gauche. *)
 
 Lemma rem_var_less e :
   forall x y, y < x -> get_typ e y = get_typ (remove_var e x) y.
@@ -277,8 +277,6 @@ Proof.
     rewrite H.
     tauto.
 Qed.
-
-
 
 (** [typing] maintenu par weakening *)
 
