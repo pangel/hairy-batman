@@ -34,9 +34,15 @@ Qed.
 
 
 Lemma env_subst_kinds_substituee U X e e' : 
-  env_subst U X e e' -> forall p, get_kind e X = Some p -> kinding e' U p.
+  env_subst U X e e' -> wf_env e -> forall p, get_kind e X = Some p -> kinding e' U p.
 Proof.
-  admit.
+  induction 1; intros B p A.
+  - now inv A.
+  - destruct B as [B B'].
+    eapply remove_var_implies_kinding with (x:=0); auto.
+    pose proof (env_subst_wf_env B' H). 
+    split; eauto using env_subst_wf_typ.
+  - apply insert_kind_kinding with (e:=e'); auto.
 Qed.
 
 Lemma env_subst_kinding e e' T U X k : 
