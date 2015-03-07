@@ -9,7 +9,7 @@ Implicit Types
 (t s u v : term)
 (e f : env).
 
-Lemma regularity e t T : typing e t T -> exists p, kinding e T p.
+Theorem regularity e t T : typing e t T -> exists p, kinding e T p.
 Proof.
   intros.
   induction H.

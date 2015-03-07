@@ -40,7 +40,7 @@ Proof.
   admit.
 Qed.
 
-Lemma env_subst_typing E1 E2 T1 T2 t X : 
+Theorem env_subst_typing E1 E2 T1 T2 t X : 
   env_subst T1 X E1 E2 ->
   typing E1 t T2 ->
   typing E2 (subst_type t T1 X) T2.

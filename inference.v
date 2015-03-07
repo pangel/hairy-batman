@@ -81,7 +81,7 @@ Hint Local Extern 1 =>
 
 (** Correction d'[infer_kind] *)
 
-Lemma infer_kind_correct T :
+Theorem infer_kind_correct T :
   forall e p, infer_kind e T = Some p -> kinding e T p.
 Proof.
   induction T; simpl; eauto 10.
@@ -90,7 +90,7 @@ Hint Resolve infer_kind_correct.
 
 (** Complétude d'[infer_kind] *)
 
-Lemma infer_kind_complete T e p:
+Theorem infer_kind_complete T e p:
   kinding e T p -> exists q, q <= p /\ infer_kind e T = Some q.
 Proof.
   induction 1; simpl; eauto 10.
@@ -99,7 +99,7 @@ Hint Resolve infer_kind_complete.
 
 (** Correction d'[infer_typ] *)
 
-Lemma infer_typ_correct t : 
+Theorem infer_typ_correct t : 
   forall e T, infer_typ e t = Some T -> typing e t T.
 Proof.
   induction t; simpl; eauto 10.
@@ -107,7 +107,7 @@ Qed.
 
 (** Complétude d'[infer_typ] *)
 
-Lemma infer_typ_complete t e T : 
+Theorem infer_typ_complete t e T : 
   typing e t T -> infer_typ e t = Some T.
 Proof.
   induction 1; intros; simpl; eauto 7.

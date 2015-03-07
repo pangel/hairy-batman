@@ -337,7 +337,7 @@ Qed.
 
 (** ** Cumulativité : Dans [e], si [T] as pour kind [p] et [p <= q], alors [T] a pour kind [q] *)
 
-Lemma cumulativity : forall e T p q, kinding e T p -> p <= q -> kinding e T q.
+Theorem cumulativity : forall e T p q, kinding e T p -> p <= q -> kinding e T q.
 Proof.
   intros e T.
   revert e.

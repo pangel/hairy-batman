@@ -9,7 +9,7 @@ Implicit Types
 (t s u v : term)
 (e f : env).
 
-Lemma narrowing e t T : 
+Theorem narrowing e t T : 
   typing e t T -> 
   forall p q, q <= p -> 
   forall n, get_kind e n = Some p ->

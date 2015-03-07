@@ -116,7 +116,7 @@ Proof.
       econstructor.
 Qed.
 
-Lemma normal_is_really_normal : forall u,  normal u <-> (forall v , red u v -> False).
+Theorem normal_is_really_normal : forall u,  normal u <-> (forall v , red u v -> False).
 intros.
 induction u.
 - split.
@@ -240,7 +240,7 @@ induction u.
       econstructor.
 Qed.
 
-Lemma big_step_congruent :
+Theorem big_step_congruent :
    (forall T t u, red t u -> red (abs T t) (abs T u)) 
 /\ (forall u t v, red t v -> red (app u t) (app u v)) 
 /\ (forall u t v, red t v -> red (app t u) (app v u)) 
