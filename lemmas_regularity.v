@@ -73,11 +73,9 @@ Qed.
 Lemma insert_kind_wf_env_conv X e e' :
   insert_kind X e e' -> wf_env e' -> wf_env e.
 Proof.
-  induction 1; simpl; auto.
-  intros [D E].
-  split.
-  - apply insert_kind_wf_typ_conv with (n := n) (e' := e'); tauto.
-  - tauto.
+  induction 1; simpl; auto. 
+  intros [A B].
+  eauto using insert_kind_wf_typ_conv.
 Qed.
 
 (** *** Relation entre [insert_kind] et [kinding] *)
@@ -129,9 +127,8 @@ Proof.
   - eauto.
   - eauto.
   - eauto.
-  - rewrite tsubst_tshift_swapN by omega.
-    pose proof (insert_kind_kinding H1 H).
-    eauto.
+  - setoid_rewrite (tsubst_tshift_swapDown T U X 0).
+    eauto using insert_kind_kinding.
 Qed.
 
 (** ** Suppression d'une variable de terme de l'environnement. *)
