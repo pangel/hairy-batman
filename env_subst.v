@@ -9,10 +9,10 @@ Implicit Types
 (t s u v : term)
 (e f : env).
 
-Inductive env_subst T : nat -> env -> env -> Prop :=
-| snil e k : env_subst T 0 ((etvar k)::e) e
-| styp n e e' U : env_subst T n e e' -> env_subst T n (evar T :: e) (evar (tsubst U T n) :: e')
-| skind n e e' k : env_subst T n e e' -> env_subst T (S n) (etvar k :: e) (etvar k :: e').
+Inductive env_subst : typ -> nat -> env -> env -> Prop :=
+| snil T e k : kinding e T k -> env_subst T 0 ((etvar k)::e) e
+| styp T n e e' U : env_subst T n e e' -> env_subst T n (evar U :: e) (evar (tsubst U T n) :: e')
+| skind T n e e' k : env_subst T n e e' -> env_subst (tshift T 1 0) (S n) (etvar k :: e) (etvar k :: e').
 
 Lemma env_subst_wf_typ E1 E2 X T T2 :
   wf_typ E1 T2 ->
@@ -32,12 +32,51 @@ Proof.
   admit.
 Qed.
 
-Lemma env_subst_kinding E1 E2 T1 T2 X T k : 
-  env_subst T1 X E1 E2 ->
-  kinding E1 T2 k ->
-  kinding E2 (tsubst T2 T1 X) k.
+
+Lemma env_subst_kinds_substituee U X e e' : 
+  env_subst U X e e' -> forall p, get_kind e X = Some p -> kinding e' U p.
 Proof.
   admit.
+Qed.
+
+Lemma env_subst_kinding e e' T U X k : 
+  env_subst U X e e' ->
+  kinding e T k ->
+  kinding e' (tsubst T U X) k.
+Proof.
+  intros.
+  pose proof (env_subst_wf_env (kinding_implies_wf_env H0) H).
+  revert H1 H. revert e' U X. dependent induction H0; intros.
+  - simpl.
+    repeat destruct_match.
+    + destruct X; [ omega| ].
+      clear Heqs Heqs0.
+      { revert l l0 H0 H. revert X. induction H3; intros.
+      - econstructor ; eauto.
+      - eapply remove_var_implies_kinding with (e:=(_::e')) (x:=0); auto.
+        eapply IHenv_subst; firstorder.
+      - simpl in *.
+        destruct X ; [omega|].
+        replace (tvar (S X)) with (tshift (tvar X) 1 0) by auto.
+        eapply insert_kind_kinding with (e:=e'); eauto.
+        eapply IHenv_subst; firstorder. }
+    + subst.
+        eauto using env_subst_kinds_substituee.
+    + destruct X0; [omega|].
+       clear Heqs.
+      { revert n H H0. revert X. induction H3; intros.
+      - omega.
+      - eapply remove_var_implies_kinding with (e:=(_::e')) (x:=0); auto.
+        eapply IHenv_subst; firstorder.
+      - simpl in *.
+        destruct X.
+        + inv H. econstructor; firstorder.
+        + replace (tvar (S X)) with (tshift (tvar X) 1 0) by auto.
+          eapply insert_kind_kinding with (e:=e'); eauto. }
+  - simpl; econstructor; eauto.
+  - simpl; econstructor.
+    eapply IHkinding; auto.
+    now constructor.
 Qed.
 
 Theorem env_subst_typing E1 E2 T1 T2 t X : 
