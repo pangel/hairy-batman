@@ -29,7 +29,14 @@ Lemma env_subst_wf_env E1 E2 X T :
   env_subst T X E1 E2 ->
   wf_env E2.
 Proof.
-  admit.
+  intros.
+  induction H0.
+  - auto.
+  - simpl in *.
+    destruct H.
+    split; auto.
+    apply env_subst_wf_typ with (E1 := e); auto.
+  - simpl in *. auto. 
 Qed.
 
 
