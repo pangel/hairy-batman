@@ -48,7 +48,7 @@ Proof.
       intuition.
 Qed.
 
-(* *** [replace_kind] préserves la well-formedness *)
+(* *** [replace_kind] change un unique kind de l'environnement et laisse le reste inchangé *)
 
 Lemma replace_consistency e n x p q k:
   get_kind e n = Some p -> get_kind (replace_kind e x k) n = if eq_nat_dec x n then Some k else Some p.
@@ -73,6 +73,8 @@ Proof.
         omega.
 Qed.
 
+(* *** [get_kind] renvoit soit un Some, soit un None *)
+
 Lemma get_kind_exists x : 
   forall e, (get_kind e x = None -> False) <-> exists p, get_kind e x = Some p.
 Proof.
@@ -84,6 +86,8 @@ Proof.
     destruct H. 
     auto.
 Qed.
+
+(* *** [replace_kind] préserves la well-formedness *)
 
 Lemma replace_kind_preserves_wf_typ e T n p : 
   wf_typ e T -> wf_typ (replace_kind e n p) T.
