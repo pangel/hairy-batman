@@ -301,7 +301,7 @@ Qed.
 
 (** ** [typing] préservé par substitution *)
 
-Lemma subst_preserves_typing :
+Theorem subst_preserves_typing :
   forall e x t u Tt Tu,
   typing e t Tt ->
   typing (remove_var e x) u Tu -> get_typ e x = Some Tu ->
