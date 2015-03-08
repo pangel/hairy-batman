@@ -1,1 +1,13 @@
-% lol
+    Nous avons utilisé les techniques simples d'automatisation suivantes :
+     \begin{itemize}
+     \item Ajout de lemmes d'arithmétique simple à {\tt auto}.
+     \item Ajout des constructeurs de nos types inductifs à {\tt auto}.
+     \item La tactique {\tt inv} qui substitue les égalités générées par {\tt inversion}.
+     \item {\tt auto} résoud les contextes trivialement absurdes.
+     \item Ajout de lemmes/théorèmes utiles à {\tt auto}, par exemple {\tt cumulativity}.
+     \end{itemize}
+     \paragraph{}Certaines sections ont particulièrement profité de l'automatisation, par exemple {\tt inference.v} qui
+     descend récursivement dans le corps des fonctions d'inférence, ce qui permet de prouver la plupart des
+     lemmes de correction/complétude de l'inférence avec {\tt eauto}. {\tt shift\_lemma.v} contient aussi
+     une tactique {\tt destruct\_match} qui permet de faire automatiquement de la disjonction de cas
+     sur l'ordre des entiers utilisés dans {\tt tshift / tsubst }.
