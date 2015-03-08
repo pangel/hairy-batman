@@ -195,7 +195,7 @@ Fixpoint subst_type t U X :=
     | var x => var x
     | abs T s => abs (tsubst T U X) (subst_type s U X)
     | app s u => app (subst_type s U X) (subst_type u U X) 
-    | tabs n t => tabs n (subst_type t U (1+X))
+    | tabs n t => tabs n (subst_type t (tshift U 1 0) (1+X))
     | tapp s T => tapp (subst_type s U X) (tsubst T U X)
   end.
 
