@@ -69,7 +69,7 @@ Proof.
   - simpl in *.
     destruct H.
     split; auto.
-    apply env_subst_wf_typ with (E1 := e); auto.
+    apply env_subst_wf_typ with (e := e); auto.
   - simpl in *. auto. 
 Qed.
 
