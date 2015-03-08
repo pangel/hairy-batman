@@ -46,22 +46,11 @@
       \end{figure}
       
      \section{Choix d'implémentation}
-     Cette partie contient majoritairement une description des choix qui ont été fait dans \texttt{init.v}. 
-     \paragraph{} Comme indiqué en commentaire dans \texttt{init.v}, on utilise les indices de Bruijn localement et globalement. On n'a pas à s'occuper d'alpha-conversion, mais beaucoup de lemmes sont dûs au shifts lors de passage sous des binders. Les environnements des variables de type et de terme sont implémenté sous la forme d'une liste commune de type \texttt{list envElem} où \texttt{envElem} est soit contient un \texttt{Typ} ou un \texttt{kind}. Ces choix rendent nécéssaire l'écriture de 3 fonctions de shifts et de 3 fonctions de substitutions que l'on peut trouver dans \texttt{init.v}. Il faut noter que l'implémentation de \texttt{subst} et de \texttt{tsubst} est fait de sorte que l'on puisse shifter toutes les variables plus grande qu'un plancher $p$ d'une valeur $n$ dans un terme $t$, appeller \texttt{shift t n p} dans le code et noter $\uparrow_p^nt$. Cette implémentation nous oblige aussi à prouver des lemmes importants pour de nombreuses parties du code et que l'on peut trouver dans \texttt{shift\_lemmas.v}. On résume ici l'énoncé de ces lemmes qui sont nécessaires à la preuve de nombreux lemmes de notre projet : 
-     \begin{align} 
-      \forall t,\ p,\ \Big\uparrow_p^0 t &= t \eqname{\texttt{(tshift\_ident)}} \\
-      \forall t,\ a,\ c,\ d,\ p,\ \Big\uparrow_{p+d}^c \Big\uparrow_p^a t &= \Big\uparrow_{p}^a \Big\uparrow_{(d-a+p)}^c t \eqname{\texttt{(tshift\_commut)}} \\
-      \forall t,\ c,\ d,\ \Big\uparrow_{d+1}^c \Big\uparrow_0^1 t &= \Big\uparrow_{0}^1 \Big\uparrow_{c}^d t \eqname{\texttt{(tshift\_commut\_simpl)}} \\
-      \forall T,\ U,\ X,\ n,\ n \leq X \Rightarrow \Big\uparrow_{X}^1 (T[n\rightarrow U]) &= (\Big\uparrow_{(X+1)}^1T)[n \rightarrow \Big\uparrow_X^1U] \eqname{\texttt{(tsubst\_tshift\_swapN)}}
-      \end{align}
-      \paragraph{} Il est important de noter que le choix d'avoir une fonction de shift qui shift toutes les valeurs d'une certaines quantité plutôt que d'appeller plusieurs fois une fonction qui effectue un seul shift sur chaque variable nous a permis de prouver les lemmes précédants assez rapidemment en se ramenant à des équations sur les entiers pour chaque variable.
+     \input{implem.tex}
      \section{Automation tools}
+     \input{auto.tex}
      \section{TONAME}
-     Cette partie du rapport reprend certains fichiers en revenant cette fois sur les difficultés que nous avons rencontré dans chacune des parties et en essayant de mettre en avant ce qui aurait pû être amélioré, à la fois dans le code et dans la manière avec laquelle nous avons essayé de répondre au problème. D'une manière générale nous avons commencé à travailler en parrallèle sur les différentes parties du code, en partant des définitions de \texttt{init.v} et en essayé de répondre à des questions qui nous semblaient distinctes. Toutefois ils nous a fallu revenir plusieurs fois sur les choix à la fois d'implémentation que nous avions fait au début mais aussi sur des définitions qui étaient fausses.
-     \begin{itemize}
-      \item \texttt{init.v} Nous avons pris les définitions prises par l'énoncé, nous avons donc rapidemment pu coder les définitions et les prédicats inductifs de cette partie ainsi que les lemmes associés.
-      \item \texttt{shiftlemma.v} Les lemmes qui se trouvent dans ce fichier, bien que facile et rapide à démontrer ont été difficile à trouver (parce qu'il était nécessaire d'essayer de commencer à essayer de faire les preuves de lemmes plus importants pour voir de quels résultats nous avions besoin, mais aussi parce que nous avons essayé de synthétiser tous les lemmes dont nous aurions besoin par la suite et portant sur cette partie en un minimum de lemme).
-      \item \texttt{red.v} Cette partie du projet, assez indépendante des autres est une de celle qui nous a pris le moins de temps. En effet il n'était pas nécessaire d'établir des lemmes intermédiaire et les résultats découlaient assez rapidemment des définitions. On peut noter que cette partie contient une preuve que les termes en forme normal sont bien ceux dont la réduction termine et réciproquement.
-     \end{itemize}
+     \input{toname.tex}
+     
 
     \end{document}
