@@ -7,7 +7,8 @@ Implicit Types
 (t s u v : term)
 (e f : env).
 
-
+(** Définition de la one-step réduction d'un terme vers un autre (la plupart des cas décrivent la cloture par contexte 
+   *)
 Inductive red_step : term -> term -> Prop :=
 | red_typ p t T : red_step (tapp (tabs p t) T) (subst_type t T 0)
 | red_term t u T : red_step (app (abs T t) u) ((subst t u) 0)
@@ -17,10 +18,12 @@ Inductive red_step : term -> term -> Prop :=
 | red_tabs t u k : red_step t u -> red_step (tabs k t) (tabs k u)
 | red_tapp t u T : red_step t u -> red_step (tapp t T) (tapp u T). 
 
+
 Definition red := clos_trans term red_step.
 Hint Constructors red_step.
 Hint Extern 3 => (match goal with |- red _ _=> econstructor end).
 
+(** La réduction est en effet bien congruante *)
 Lemma red_congruent t u : red t u -> 
 (  (forall T, red (abs T t) (abs T u))
 /\ (forall v, red (app t v) (app u v))
@@ -36,8 +39,8 @@ Proof.
   - eapply t_trans with (y := tapp y T) ; firstorder.
 Qed.
 
-(* Bizarre. Il faut 2 variantes de neutral et les prédicats
-   ne sont pas mutuellement inductifs *)
+(** Définition des termes en formes normales à partir des termes en formes neutres
+*)
 Inductive normal : term -> Prop :=
 | nvar x : normal (var x)
 | nabs T t : normal t -> normal (abs T t)
@@ -57,6 +60,7 @@ with neutralT : term -> Prop :=
 | neutralT_abs T t : neutralT (abs T t)
 | neutralT_tapp t T : neutralT (tapp t T).
 
+(** La normalité/neutralité/Tneutralité est préservée par substitution*)
 Theorem normal_neutral_preserved_typ_subst t T X :
    (normal t -> normal (subst_type t T X)) 
 /\ (neutral t -> neutral (subst_type t T X)) 
@@ -116,6 +120,7 @@ Proof.
       econstructor.
 Qed.
 
+(** Les termes sont en forme normale si et seulement si il ne se réduisent pas*)
 Theorem normal_is_really_normal : forall u,  normal u <-> (forall v , red u v -> False).
 intros.
 induction u.
@@ -240,6 +245,7 @@ induction u.
       econstructor.
 Qed.
 
+(** la big_step reduction est congruante*)
 Theorem big_step_congruent :
    (forall T t u, red t u -> red (abs T t) (abs T u)) 
 /\ (forall u t v, red t v -> red (app u t) (app u v)) 
