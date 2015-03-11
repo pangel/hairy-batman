@@ -81,20 +81,110 @@
   arn_rbs/.style = {treenode, rectangle , red, draw=red, 
     minimum width=1.5em, minimum height=1.5em, very thick},
   arn_ts/.style = {treenode, rectangle, pink, draw=turquoise, 
-    minimum width=1.5em, minimum height=1.5em, very thick},
+    minimum width=1.5em, minimum height=1.5em, very thick}, % CMB
 }
 \author{Adrien HUSSON, Matthieu JOURNAULT, Lucas RANDAZZO}
 \date{Vendredi 13 mars, 2015}
 \title{Soutenance du projet Coq}
-
+\newcommand{\eqname}[1]{\tag*{#1}}
 
 \begin{document}
   \maketitle
   \begin{frame}
     \tableofcontents
   \end{frame}
-  \section{Résultats généraux}
-%   Qu'est ce qui a été fait dans le projet
   
+  \section{Formalisation Système F stratifié en Coq}
+  \begin{frame}
+  \begin{block}{Partie 1}
+  \begin{enumerate}
+   \item Correction et complétude de l'inférence
+   \item Regularity, Narrowing
+   \item Stabilité du typage par substitution
+   \item Cumulativité
+   \item Red
+  \end{enumerate}
+  \end{block}
+  \begin{alertblock}{Partie 2}
+   Non fait
+  \end{alertblock}
+  \end{frame}
+%  Summarize de ce qu'on a formulé, recall what the project was about, main step of the formalization, explain and comment formalization choices, describe ur personnal work, comment what was difficult/tedious, what would we do with more time.
+%   Qu'est ce qui a été fait dans le projet
+  \begin{frame}{Choix d'implémentation}
+  \begin{block}{Indice de "de Bruijn"}
+    \begin{itemize}
+     \item indices de Bruijn
+     \item liste commune de type \texttt{list envElem}
+     \item $\texttt{envElem} = | \texttt{Typ} | \texttt{kind}$
+    \end{itemize}
+
+  \end{block}
+  \begin{exampleblock}{Example}
+   \[
+    (\lambda 0 0)(\lambda 0 0) \rightarrow (\lambda 0 0)(\lambda 0 0) \rightarrow (\lambda 0 0)(\lambda 0 0) \rightarrow (\lambda 0 0)(\lambda 0 0) \rightarrow (\lambda 0 0)(\lambda 0 0) 
+   \]
+  \end{exampleblock}
+  \end{frame}
+
+  \begin{frame}{Etapes du développement}
+  \begin{block}{Etapes du développement 1}
+   Lemmes courants : préservation du typage et du kinding par {\tt insert\_kind}, {\tt remove\_var}, {\tt replace\_kind}, {\tt env\_subst}. 
+  \end{block}
+  \begin{block}{Etapes du développement 2}
+   Symmétrie de {\tt insert\_kind} et {\tt remove\_var} 
+  \end{block}
+  \centering
+  \begin{tabular}{c c c}
+%     lol & lol & lol
+   & Ajout & Enlève \\ \cline{2-3}
+   Type & \multicolumn{1}{|c|}{ } & \multicolumn{1}{c|}{{\tt remove\_var}} \\ \cline{2-3}
+   Kind & \multicolumn{1}{|c|}{{\tt insert\_kind}} & \multicolumn{1}{c|}{ } \\ \cline{2-3}
+  \end{tabular}
+  \end{frame}
+  
+  \begin{frame}{Choix d'implémentation (cont'd)}
+  \begin{block}{Shift et Substitution}
+  \begin{enumerate}
+   \item {\tt tshift T f n} $= \uparrow_k^n T$
+   \item Plusieurs lemmes généraux à prouver réutilisés dans toutes les preuves
+  \end{enumerate}
+  \end{block}
+  \end{frame}
+  
+  \begin{frame}{Shift et Substitution}
+  \begin{align} 
+  \Big\uparrow_p^0 T &= T \eqname{\texttt{(tshift\_ident)}} \\
+  \Big\uparrow_{p+d}^c \Big\uparrow_p^a T &= \Big\uparrow_{p}^a \Big\uparrow_{(d-a+p)}^c T 
+       \eqname{\texttt{(tshift\_commut)}} \\
+      \Big\uparrow_{n}^{y+x+k} T &= \Big\uparrow_{n+y}^k \Big\uparrow_{n}^{y+x} T
+       \eqname{\texttt{(tshift\_merge)}} \\
+      \Big\uparrow_{n+m}^{1} T[n \rightarrow U] 
+       &= (\Big\uparrow^{1}_{n+m+1} T)[n \rightarrow \Big\uparrow^{1}_{n+m} U]
+       \eqname{\texttt{(tsubst\_tshift\_swapDown)}}\\
+  (\Big\uparrow^k_x T) [x+k+n \rightarrow \Big\uparrow^{x+r+k}_0 U] 
+  &= \Big\uparrow^k_x T[x+n \rightarrow \Big\uparrow^{x+r}_0 U]
+       \eqname{\texttt{(tsubst\_tshift\_swapUp)}} \\
+     (\Big\uparrow^{k+1}_x T)[x+k \rightarrow U] &= \Big\uparrow^k_x T
+       \eqname{\texttt{(tsubst\_tshift\_swapIn)}} \\
+      T[k \rightarrow \Big\uparrow^k_0 U][k+x \rightarrow \Big\uparrow^k_0 V] &=
+       T[k+x+1 \rightarrow \Big\uparrow^{k+1}_0 V][k \rightarrow \Big\uparrow^k_0 U[x \rightarrow V]]
+       \eqname{\texttt{(tsubst\_commut\_general)}} 
+  \end{align}
+  \end{frame}
+
+  \begin{frame}{Difficultés et améliorations possibles}
+   \begin{block}{Lemmes de substitution/shifting}
+    \begin{enumerate}
+     \item Beaucoup de temps pour trouver les bons lemmes
+     \item But : trouver des lemmes plus généraux dont les précédents se déduisent
+     \end{enumerate}
+   \end{block}
+
+  \end{frame}
+  
+  \begin{frame}{Dépendances de lemmes}
+  Swag graphs
+  \end{frame}
   
 \end{document}
